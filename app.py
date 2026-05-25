@@ -24,413 +24,484 @@ SUPERVISOR_ACCOUNTS = [
     },
 ]
 
-
 st.set_page_config(
-    page_title="Intern Operations & Attendance Tracker",
-    page_icon="🗂️",
+    page_title="BA Intern Tracker",
+    page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
-def inject_responsive_styles() -> None:
+# ─────────────────────────── STYLES ────────────────────────────
+
+def inject_styles() -> None:
     st.markdown(
         """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-            :root {
-                --bg: #eef3f8;
-                --surface: rgba(255, 255, 255, 0.92);
-                --surface-strong: #ffffff;
-                --surface-muted: #f7f9fc;
-                --border: rgba(15, 23, 42, 0.09);
-                --text: #10233c;
-                --muted: #5f728a;
-                --primary: #0c4a6e;
-                --primary-soft: #dff0fb;
-                --accent: #0f766e;
-                --danger: #b42318;
-                --shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
-            }
+        /* ── Base ── */
+        html, body, [class*="css"] {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            -webkit-font-smoothing: antialiased;
+        }
+        .stApp { background: #F0F4F8 !important; }
+        .block-container {
+            padding: 1.75rem 2rem 3rem !important;
+            max-width: 1320px !important;
+        }
+        #MainMenu, header[data-testid="stHeader"], footer { display: none !important; }
+        [data-testid="collapsedControl"] svg { fill: #4B5563 !important; }
 
-            html, body, [class*="css"] {
-                font-family: "Manrope", sans-serif;
-            }
+        /* ── Sidebar ── */
+        [data-testid="stSidebar"] {
+            background: #111827 !important;
+            border-right: 1px solid rgba(255,255,255,0.04) !important;
+        }
+        [data-testid="stSidebar"] * { color: #F9FAFB !important; }
+        [data-testid="stSidebar"] .stButton > button {
+            background: rgba(255,255,255,0.07) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #F9FAFB !important;
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+            width: 100% !important;
+            box-shadow: none !important;
+            height: 38px !important;
+        }
+        [data-testid="stSidebar"] .stButton > button:hover {
+            background: rgba(255,255,255,0.11) !important;
+            box-shadow: none !important;
+        }
 
-            .stApp {
-                background:
-                    radial-gradient(circle at top left, rgba(207, 232, 255, 0.8), transparent 28%),
-                    radial-gradient(circle at top right, rgba(214, 244, 236, 0.85), transparent 24%),
-                    linear-gradient(180deg, #f8fbfe 0%, var(--bg) 100%);
-            }
+        /* ── Primary buttons ── */
+        .stButton > button,
+        [data-testid="stFormSubmitButton"] > button {
+            background: #2563EB !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            font-size: 0.875rem !important;
+            height: 40px !important;
+            padding: 0 1.25rem !important;
+            letter-spacing: 0 !important;
+            transition: background 0.15s ease, box-shadow 0.15s ease !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08) !important;
+        }
+        .stButton > button:hover,
+        [data-testid="stFormSubmitButton"] > button:hover {
+            background: #1D4ED8 !important;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.28) !important;
+        }
 
-            .block-container {
-                padding-top: 0.5rem;
-                padding-bottom: 2rem;
-                max-width: 1320px;
-            }
+        /* ── Secondary buttons ── */
+        button[kind="secondary"] {
+            background: #FFFFFF !important;
+            color: #374151 !important;
+            border: 1.5px solid #D1D5DB !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+        }
+        button[kind="secondary"]:hover {
+            background: #F9FAFB !important;
+            border-color: #9CA3AF !important;
+            color: #111827 !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+        }
 
-            #MainMenu, header[data-testid="stHeader"] {
-                visibility: hidden;
-            }
+        /* ── Inputs ── */
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="base-input"] > div,
+        div[data-baseweb="textarea"] > div {
+            background: #FFFFFF !important;
+            border: 1.5px solid #D1D5DB !important;
+            border-radius: 8px !important;
+            transition: border-color 0.15s, box-shadow 0.15s !important;
+        }
+        div[data-baseweb="input"] > div:focus-within,
+        div[data-baseweb="base-input"] > div:focus-within {
+            border-color: #2563EB !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+        }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="base-input"] input,
+        textarea {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            font-size: 0.9rem !important;
+        }
+        div[data-baseweb="input"] input::placeholder,
+        textarea::placeholder {
+            color: #9CA3AF !important;
+            -webkit-text-fill-color: #9CA3AF !important;
+            opacity: 1 !important;
+        }
+        div[data-baseweb="select"] > div {
+            background: #FFFFFF !important;
+            border: 1.5px solid #D1D5DB !important;
+            border-radius: 8px !important;
+        }
+        div[data-baseweb="select"] * { color: #111827 !important; }
+        div[data-baseweb="select"] svg,
+        div[data-baseweb="input"] svg { fill: #6B7280 !important; }
 
-            [data-testid="collapsedControl"] svg {
-                fill: var(--text);
-            }
+        /* ── Labels ── */
+        label,
+        .stTextInput label,
+        .stSelectbox label,
+        .stTextArea label {
+            color: #374151 !important;
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+        }
 
-            [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, #0f223a 0%, #18314f 100%);
-                border-right: 1px solid rgba(255, 255, 255, 0.08);
-            }
+        /* ── Tabs ── */
+        .stTabs [data-baseweb="tab-list"] {
+            background: #E2E8F0 !important;
+            border-radius: 10px !important;
+            padding: 3px !important;
+            gap: 2px !important;
+            border: none !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 7px !important;
+            font-weight: 500 !important;
+            font-size: 0.875rem !important;
+            color: #6B7280 !important;
+            height: 38px !important;
+            padding: 0 1.1rem !important;
+            background: transparent !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #FFFFFF !important;
+            color: #111827 !important;
+            font-weight: 600 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06) !important;
+        }
 
-            [data-testid="stSidebar"] * {
-                color: #f8fbff;
-            }
+        /* ── DataFrame ── */
+        div[data-testid="stDataFrame"] {
+            border-radius: 10px !important;
+            overflow: hidden !important;
+            border: 1px solid #E5E7EB !important;
+        }
 
-            [data-testid="stSidebar"] .sidebar-brand {
-                padding: 1rem 1rem 0.2rem 1rem;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                margin-bottom: 1rem;
-            }
+        /* ── Form container ── */
+        [data-testid="stForm"] {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+        }
 
-            [data-testid="stSidebar"] .sidebar-caption {
-                color: rgba(237, 245, 255, 0.75);
-                font-size: 0.9rem;
-            }
+        /* ── Alerts ── */
+        div[data-testid="stAlert"] { border-radius: 10px !important; }
 
-            [data-testid="stSidebar"] button[kind="secondary"] {
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                color: #ffffff;
-                width: 100%;
-            }
+        /* ── Bordered containers (st.container border=True) ── */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border: 1px solid #E5E7EB !important;
+            border-radius: 14px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+        }
 
-            [data-testid="stSidebar"] button[kind="secondary"]:hover {
-                border-color: rgba(255, 255, 255, 0.34);
-                color: #ffffff;
-            }
+        /* ── Login ── */
+        .login-outer {
+            min-height: calc(100vh - 3rem);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            width: min(1020px, 100%);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #E5E7EB;
+        }
+        .login-brand {
+            padding: 3rem 2.5rem;
+            background: linear-gradient(150deg, #1A3A5C 0%, #0F172A 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 1.75rem;
+        }
+        .login-logo-row {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+        .login-logo-mark {
+            width: 38px;
+            height: 38px;
+            background: #2563EB;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #FFFFFF;
+        }
+        .login-logo-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #F9FAFB;
+        }
+        .login-headline {
+            font-size: clamp(1.6rem, 2.2vw, 2.15rem);
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1.18;
+            letter-spacing: -0.04em;
+        }
+        .login-sub {
+            font-size: 0.925rem;
+            color: rgba(249,250,251,0.58);
+            line-height: 1.6;
+            margin-top: -0.75rem;
+        }
+        .login-features {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: auto;
+        }
+        .login-feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+        }
+        .feat-icon {
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
+            background: rgba(37,99,235,0.22);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.88rem;
+            color: #93C5FD;
+            font-weight: 700;
+        }
+        .feat-title {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: #F9FAFB;
+            margin-bottom: 0.1rem;
+        }
+        .feat-desc {
+            font-size: 0.78rem;
+            color: rgba(249,250,251,0.48);
+            line-height: 1.4;
+        }
+        .login-form-area {
+            padding: 3rem 2.75rem;
+            background: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .login-eyebrow {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #2563EB;
+            margin-bottom: 0.5rem;
+        }
+        .login-title {
+            font-size: 1.65rem;
+            font-weight: 800;
+            color: #111827;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.4rem;
+            line-height: 1.2;
+        }
+        .login-caption {
+            font-size: 0.875rem;
+            color: #6B7280;
+            margin-bottom: 1.75rem;
+            line-height: 1.5;
+        }
 
-            .page-hero {
-                padding: 1.55rem 1.6rem;
-                border-radius: 24px;
-                background:
-                    linear-gradient(135deg, rgba(12, 74, 110, 0.95), rgba(15, 118, 110, 0.86)),
-                    linear-gradient(180deg, #134d73, #0f766e);
-                color: #ffffff;
-                box-shadow: var(--shadow);
-                margin-bottom: 1rem;
-                overflow: hidden;
-                position: relative;
-            }
+        /* ── Page header ── */
+        .page-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .page-eyebrow {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #2563EB;
+            margin-bottom: 0.3rem;
+        }
+        .page-title {
+            font-size: clamp(1.35rem, 1.8vw, 1.7rem);
+            font-weight: 800;
+            color: #111827;
+            letter-spacing: -0.03em;
+            margin: 0 0 0.35rem;
+            line-height: 1.2;
+        }
+        .page-desc {
+            font-size: 0.875rem;
+            color: #6B7280;
+            line-height: 1.55;
+            max-width: 640px;
+            margin: 0;
+        }
 
-            .page-hero::after {
-                content: "";
-                position: absolute;
-                inset: auto -50px -60px auto;
-                width: 220px;
-                height: 220px;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.08);
-            }
+        /* ── Stat cards ── */
+        .stat-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 14px;
+            padding: 1.2rem 1.3rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            height: 100%;
+            transition: box-shadow 0.2s;
+        }
+        .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-bottom: 1rem;
+        }
+        .dot-blue   { background: #2563EB; }
+        .dot-violet { background: #7C3AED; }
+        .dot-green  { background: #059669; }
+        .dot-amber  { background: #D97706; }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #111827;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 0.3rem;
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .stat-note {
+            font-size: 0.78rem;
+            color: #9CA3AF;
+            margin-top: 0.15rem;
+        }
 
-            .hero-kicker {
-                text-transform: uppercase;
-                letter-spacing: 0.12em;
-                font-size: 0.76rem;
-                font-weight: 700;
-                opacity: 0.82;
-                margin-bottom: 0.45rem;
-            }
+        /* ── Section header ── */
+        .s-head { margin-bottom: 0.75rem; padding-top: 0.25rem; }
+        .s-title { font-size: 0.95rem; font-weight: 700; color: #111827; margin-bottom: 0.2rem; }
+        .s-desc  { font-size: 0.8rem; color: #9CA3AF; }
 
-            .hero-title {
-                font-size: clamp(1.8rem, 3vw, 2.8rem);
-                font-weight: 800;
-                margin: 0;
-                line-height: 1.08;
-            }
+        /* ── Clock status ── */
+        .clock-status {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.9rem 1rem;
+            border-radius: 10px;
+            border: 1.5px solid;
+            margin-bottom: 0.9rem;
+        }
+        .cs-in  { background: #ECFDF5; border-color: #6EE7B7; }
+        .cs-out { background: #F9FAFB; border-color: #E5E7EB; }
+        .cs-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.35; }
+        }
+        .cs-dot-in  { background: #10B981; animation: pulse-dot 2s infinite; }
+        .cs-dot-out { background: #9CA3AF; }
+        .cs-label     { font-size: 0.78rem; font-weight: 500; color: #6B7280; }
+        .cs-value-in  { font-size: 0.95rem; font-weight: 700; color: #065F46; }
+        .cs-value-out { font-size: 0.95rem; font-weight: 700; color: #374151; }
 
-            .hero-copy {
-                max-width: 760px;
-                color: rgba(255, 255, 255, 0.84);
-                margin-top: 0.65rem;
-                font-size: 1rem;
-            }
+        /* ── Review items ── */
+        .review-item {
+            background: #F9FAFB;
+            border: 1px solid #F3F4F6;
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 0.625rem;
+        }
+        .review-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #EFF6FF;
+            color: #1D4ED8;
+            margin-bottom: 0.4rem;
+        }
+        .review-title { font-size: 0.9rem; font-weight: 600; color: #111827; margin-bottom: 0.15rem; }
+        .review-meta  { font-size: 0.78rem; color: #9CA3AF; margin-bottom: 0.4rem; }
+        .review-desc  { font-size: 0.85rem; color: #374151; line-height: 1.5; margin-bottom: 0.5rem; }
+        .review-link  { font-size: 0.8rem; color: #2563EB; word-break: break-all; }
 
-            .metric-card {
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 252, 0.98) 100%);
-                border: 1px solid var(--border);
-                border-radius: 22px;
-                padding: 1.15rem 1.2rem;
-                box-shadow: 0 10px 32px rgba(15, 23, 42, 0.05);
-                min-height: 138px;
-            }
+        /* ── Sidebar ── */
+        .sb-brand {
+            padding: 1.5rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 0.25rem;
+        }
+        .sb-logo-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+        .sb-logo-mark {
+            width: 30px; height: 30px;
+            background: #2563EB;
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 800; color: #FFFFFF;
+        }
+        .sb-app-name { font-size: 0.9rem; font-weight: 700; color: #F9FAFB; }
+        .sb-sub      { font-size: 0.75rem; color: rgba(249,250,251,0.32); }
+        .sb-user {
+            padding: 0.875rem 1.25rem;
+            display: flex; align-items: center; gap: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 1rem;
+        }
+        .sb-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: #1D4ED8;
+            border: 2px solid rgba(255,255,255,0.14);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 700; color: #FFFFFF;
+            flex-shrink: 0;
+        }
+        .sb-user-name { font-size: 0.86rem; font-weight: 600; color: #F9FAFB; }
+        .sb-user-role { font-size: 0.75rem; color: rgba(249,250,251,0.38); text-transform: capitalize; }
+        .sb-footer    { padding: 0 1.25rem 1.5rem; }
 
-            .metric-label {
-                color: var(--muted);
-                font-size: 0.88rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-            }
-
-            .metric-value {
-                color: var(--text);
-                font-size: clamp(1.6rem, 2.4vw, 2.35rem);
-                font-weight: 800;
-                margin-top: 0.4rem;
-                line-height: 1.05;
-            }
-
-            .metric-note {
-                color: var(--muted);
-                margin-top: 0.5rem;
-                font-size: 0.92rem;
-            }
-
-            .panel {
-                background: var(--surface);
-                backdrop-filter: blur(18px);
-                border: 1px solid var(--border);
-                border-radius: 22px;
-                box-shadow: 0 14px 40px rgba(15, 23, 42, 0.04);
-                padding: 1.15rem;
-                margin-bottom: 1rem;
-            }
-
-            .panel-title {
-                color: var(--text);
-                font-size: 1.02rem;
-                font-weight: 800;
-                margin-bottom: 0.2rem;
-            }
-
-            .panel-copy {
-                color: var(--muted);
-                font-size: 0.92rem;
-                margin-bottom: 0.8rem;
-            }
-
-            .badge {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.35rem;
-                padding: 0.45rem 0.7rem;
-                border-radius: 999px;
-                background: var(--primary-soft);
-                color: var(--primary);
-                font-weight: 700;
-                font-size: 0.86rem;
-            }
-
-            .status-banner {
-                border-radius: 20px;
-                padding: 1rem 1.1rem;
-                background: linear-gradient(180deg, #ffffff, #f7fafc);
-                border: 1px solid var(--border);
-                margin-bottom: 1rem;
-            }
-
-            .status-title {
-                color: var(--muted);
-                font-size: 0.82rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                font-weight: 700;
-            }
-
-            .status-value {
-                color: var(--text);
-                font-size: 1.45rem;
-                font-weight: 800;
-                margin-top: 0.3rem;
-            }
-
-            .login-wrap {
-                min-height: calc(100vh - 1rem);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .login-card {
-                width: min(1120px, 100%);
-                display: grid;
-                grid-template-columns: 1.05fr 0.95fr;
-                background: rgba(255, 255, 255, 0.86);
-                border: 1px solid rgba(15, 23, 42, 0.08);
-                border-radius: 28px;
-                overflow: hidden;
-                box-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
-                backdrop-filter: blur(18px);
-            }
-
-            .login-brand {
-                padding: 2.2rem;
-                background:
-                    radial-gradient(circle at top left, rgba(255, 255, 255, 0.22), transparent 34%),
-                    linear-gradient(145deg, #0c4a6e 0%, #115e59 100%);
-                color: #ffffff;
-            }
-
-            .login-brand h1 {
-                font-size: clamp(2rem, 3vw, 3rem);
-                margin: 0 0 0.8rem 0;
-                line-height: 1.05;
-            }
-
-            .login-brand p {
-                color: rgba(255, 255, 255, 0.84);
-                font-size: 1rem;
-                max-width: 460px;
-            }
-
-            .login-points {
-                margin-top: 1.2rem;
-                display: grid;
-                gap: 0.8rem;
-            }
-
-            .login-point {
-                padding: 0.8rem 0.95rem;
-                border-radius: 18px;
-                background: rgba(255, 255, 255, 0.1);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-            }
-
-            .login-form {
-                padding: 2.1rem;
-                background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(249, 251, 253, 0.98));
-            }
-
-            .login-form h2 {
-                color: var(--text);
-                font-size: 1.6rem;
-                margin-bottom: 0.4rem;
-            }
-
-            .login-form p {
-                color: var(--muted);
-                margin-bottom: 1rem;
-            }
-
-            label, .stTextInput label, .stTextArea label, .stSelectbox label, .stMarkdown, .stCaption {
-                color: var(--text);
-            }
-
-            div[data-baseweb="input"] input,
-            div[data-baseweb="base-input"] input,
-            div[data-baseweb="base-input"] textarea,
-            textarea {
-                color: var(--text) !important;
-                -webkit-text-fill-color: var(--text) !important;
-                background: #ffffff !important;
-            }
-
-            div[data-baseweb="input"] input::placeholder,
-            div[data-baseweb="base-input"] input::placeholder,
-            div[data-baseweb="base-input"] textarea::placeholder,
-            textarea::placeholder {
-                color: #7b8da5 !important;
-                -webkit-text-fill-color: #7b8da5 !important;
-                opacity: 1 !important;
-            }
-
-            div[data-baseweb="input"],
-            div[data-baseweb="base-input"],
-            div[data-baseweb="select"] > div {
-                background: #ffffff !important;
-                border-color: rgba(15, 23, 42, 0.1) !important;
-            }
-
-            div[data-baseweb="select"] * {
-                color: var(--text) !important;
-            }
-
-            div[data-baseweb="select"] svg,
-            div[data-baseweb="input"] svg,
-            div[data-baseweb="base-input"] svg {
-                fill: #4b5f78 !important;
-                color: #4b5f78 !important;
-            }
-
-            [data-testid="stForm"] {
-                background: transparent;
-            }
-
-            [data-testid="stFormSubmitButton"] button,
-            .stButton button {
-                box-shadow: none !important;
-            }
-
-            .clock-button button,
-            .stButton button[kind="primary"] {
-                min-height: 3rem;
-                border-radius: 14px;
-                font-weight: 800;
-                border: 0;
-                background: linear-gradient(135deg, #0c4a6e, #0f766e);
-            }
-
-            .stTabs [data-baseweb="tab-list"] {
-                gap: 0.5rem;
-                background: rgba(255, 255, 255, 0.6);
-                border-radius: 16px;
-                padding: 0.35rem;
-                border: 1px solid rgba(15, 23, 42, 0.06);
-            }
-
-            .stTabs [data-baseweb="tab"] {
-                height: 50px;
-                border-radius: 12px;
-                font-weight: 700;
-                color: var(--muted);
-            }
-
-            .stTabs [aria-selected="true"] {
-                background: #ffffff !important;
-                color: var(--text) !important;
-                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-            }
-
-            div[data-testid="stDataFrame"] {
-                border-radius: 18px;
-                overflow: hidden;
-                border: 1px solid rgba(15, 23, 42, 0.08);
-            }
-
-            @media (max-width: 980px) {
-                .login-card {
-                    grid-template-columns: 1fr;
-                }
-            }
-
-            @media (max-width: 768px) {
-                .block-container {
-                    padding-top: 0.25rem;
-                    padding-left: 0.8rem;
-                    padding-right: 0.8rem;
-                }
-
-                div[data-testid="column"] {
-                    width: 100% !important;
-                    flex: 1 1 100% !important;
-                }
-
-                .login-brand,
-                .login-form,
-                .page-hero,
-                .panel,
-                .metric-card {
-                    padding: 1rem;
-                    border-radius: 18px;
-                }
-            }
+        @media (max-width: 980px) {
+            .login-card { grid-template-columns: 1fr; }
+            .login-brand { display: none; }
+        }
+        @media (max-width: 768px) {
+            .block-container { padding: 1rem 0.75rem 2rem !important; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
+
+# ─────────────────────────── DATABASE ───────────────────────────
 
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -485,66 +556,34 @@ def init_db() -> None:
             )
             """
         )
-
         for account in SUPERVISOR_ACCOUNTS:
-            cursor.execute(
-                "SELECT id FROM users WHERE username = ?",
-                (account["username"],),
-            )
+            cursor.execute("SELECT id FROM users WHERE username=?", (account["username"],))
             existing = cursor.fetchone()
-            account_values = (
-                hash_password(account["password"]),
-                account["role"],
-                account["full_name"],
-                account["username"],
-            )
+            vals = (hash_password(account["password"]), account["role"], account["full_name"], account["username"])
             if existing:
-                cursor.execute(
-                    """
-                    UPDATE users
-                    SET password = ?, role = ?, full_name = ?
-                    WHERE username = ?
-                    """,
-                    account_values,
-                )
+                cursor.execute("UPDATE users SET password=?,role=?,full_name=? WHERE username=?", vals)
             else:
-                cursor.execute(
-                    """
-                    INSERT INTO users (password, role, full_name, username)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    account_values,
-                )
+                cursor.execute("INSERT INTO users (password,role,full_name,username) VALUES (?,?,?,?)", vals)
         conn.commit()
 
 
+# ─────────────────────────── AUTH ───────────────────────────────
+
 def init_session_state() -> None:
-    defaults = {
-        "authenticated": False,
-        "username": "",
-        "role": "",
-        "full_name": "",
-    }
-    for key, value in defaults.items():
-        st.session_state.setdefault(key, value)
+    for key, val in {"authenticated": False, "username": "", "role": "", "full_name": ""}.items():
+        st.session_state.setdefault(key, val)
 
 
 def login_user(username: str, password: str) -> bool:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT username, role, full_name
-            FROM users
-            WHERE username = ? AND password = ?
-            """,
+            "SELECT username,role,full_name FROM users WHERE username=? AND password=?",
             (username.strip(), hash_password(password)),
         )
         user = cursor.fetchone()
-
     if not user:
         return False
-
     st.session_state.authenticated = True
     st.session_state.username = user["username"]
     st.session_state.role = user["role"]
@@ -558,6 +597,8 @@ def logout_user() -> None:
     st.rerun()
 
 
+# ─────────────────────────── DATA ───────────────────────────────
+
 def current_date_string() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
@@ -569,22 +610,16 @@ def current_timestamp() -> str:
 def create_intern(username: str, password: str, full_name: str) -> tuple[bool, str]:
     username = username.strip()
     full_name = full_name.strip()
-
     if not username or not password or not full_name:
         return False, "All fields are required."
-
-    reserved_supervisors = {account["username"].lower() for account in SUPERVISOR_ACCOUNTS}
-    if username.lower() in reserved_supervisors:
+    reserved = {a["username"].lower() for a in SUPERVISOR_ACCOUNTS}
+    if username.lower() in reserved:
         return False, "That username is reserved for a supervisor account."
-
     try:
         with closing(get_connection()) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                INSERT INTO users (username, password, role, full_name)
-                VALUES (?, ?, ?, ?)
-                """,
+                "INSERT INTO users (username,password,role,full_name) VALUES (?,?,?,?)",
                 (username, hash_password(password), "intern", full_name),
             )
             conn.commit()
@@ -596,18 +631,16 @@ def create_intern(username: str, password: str, full_name: str) -> tuple[bool, s
 def reset_intern_password(username: str, new_password: str) -> tuple[bool, str]:
     if not username or not new_password:
         return False, "Username and new password are required."
-
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT role FROM users WHERE username = ?", (username.strip(),))
+        cursor.execute("SELECT role FROM users WHERE username=?", (username.strip(),))
         user = cursor.fetchone()
         if not user:
             return False, "Intern account not found."
         if user["role"] != "intern":
             return False, "Only intern passwords can be changed here."
-
         cursor.execute(
-            "UPDATE users SET password = ? WHERE username = ?",
+            "UPDATE users SET password=? WHERE username=?",
             (hash_password(new_password), username.strip()),
         )
         conn.commit()
@@ -618,12 +651,7 @@ def list_interns() -> list[dict]:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT username, full_name
-            FROM users
-            WHERE role = 'intern'
-            ORDER BY full_name COLLATE NOCASE, username COLLATE NOCASE
-            """
+            "SELECT username,full_name FROM users WHERE role='intern' ORDER BY full_name COLLATE NOCASE"
         )
         return rows_to_dicts(cursor.fetchall())
 
@@ -632,13 +660,7 @@ def get_open_attendance_record(username: str):
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT *
-            FROM attendance
-            WHERE username = ? AND date = ? AND clock_out IS NULL
-            ORDER BY id DESC
-            LIMIT 1
-            """,
+            "SELECT * FROM attendance WHERE username=? AND date=? AND clock_out IS NULL ORDER BY id DESC LIMIT 1",
             (username, current_date_string()),
         )
         return cursor.fetchone()
@@ -647,14 +669,10 @@ def get_open_attendance_record(username: str):
 def clock_in(username: str) -> tuple[bool, str]:
     if get_open_attendance_record(username):
         return False, "You are already clocked in for today."
-
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            INSERT INTO attendance (username, date, clock_in, clock_out, status)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+            "INSERT INTO attendance (username,date,clock_in,clock_out,status) VALUES (?,?,?,?,?)",
             (username, current_date_string(), current_timestamp(), None, "Clocked In"),
         )
         conn.commit()
@@ -665,7 +683,6 @@ def clock_out(username: str) -> tuple[bool, str]:
     open_record = get_open_attendance_record(username)
     if not open_record:
         return False, "No active clock-in found for today."
-
     clock_in_dt = datetime.strptime(open_record["clock_in"], "%Y-%m-%d %H:%M:%S")
     clock_out_ts = current_timestamp()
     clock_out_dt = datetime.strptime(clock_out_ts, "%Y-%m-%d %H:%M:%S")
@@ -674,31 +691,21 @@ def clock_out(username: str) -> tuple[bool, str]:
     hours, remainder = divmod(max(total_seconds, 0), 3600)
     minutes, _ = divmod(remainder, 60)
     status = f"Completed ({hours}h {minutes}m)"
-
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            UPDATE attendance
-            SET clock_out = ?, status = ?
-            WHERE id = ?
-            """,
+            "UPDATE attendance SET clock_out=?,status=? WHERE id=?",
             (clock_out_ts, status, open_record["id"]),
         )
         conn.commit()
-    return True, f"Clock-out recorded. Session duration: {hours}h {minutes}m."
+    return True, f"Clock-out recorded. Session: {hours}h {minutes}m."
 
 
 def get_today_attendance() -> list[dict]:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT username, date, clock_in, clock_out, status
-            FROM attendance
-            WHERE date = ?
-            ORDER BY clock_in DESC
-            """,
+            "SELECT username,date,clock_in,clock_out,status FROM attendance WHERE date=? ORDER BY clock_in DESC",
             (current_date_string(),),
         )
         return rows_to_dicts(cursor.fetchall())
@@ -708,12 +715,7 @@ def get_user_attendance_history(username: str) -> list[dict]:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT date, clock_in, clock_out, status
-            FROM attendance
-            WHERE username = ?
-            ORDER BY date DESC, id DESC
-            """,
+            "SELECT date,clock_in,clock_out,status FROM attendance WHERE username=? ORDER BY date DESC,id DESC",
             (username,),
         )
         return rows_to_dicts(cursor.fetchall())
@@ -722,14 +724,10 @@ def get_user_attendance_history(username: str) -> list[dict]:
 def create_task(assigned_to: str, title: str, description: str) -> tuple[bool, str]:
     if not assigned_to or not title.strip():
         return False, "Assigned intern and task title are required."
-
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            INSERT INTO tasks (assigned_to, title, description, link, status)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+            "INSERT INTO tasks (assigned_to,title,description,link,status) VALUES (?,?,?,?,?)",
             (assigned_to, title.strip(), description.strip(), "", "Assigned"),
         )
         conn.commit()
@@ -739,15 +737,10 @@ def create_task(assigned_to: str, title: str, description: str) -> tuple[bool, s
 def submit_task_link(task_id: int, username: str, link: str) -> tuple[bool, str]:
     if not link.strip():
         return False, "Please enter a valid artifact URL."
-
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            UPDATE tasks
-            SET link = ?, status = ?
-            WHERE id = ? AND assigned_to = ?
-            """,
+            "UPDATE tasks SET link=?,status=? WHERE id=? AND assigned_to=?",
             (link.strip(), "Pending Review", task_id, username),
         )
         conn.commit()
@@ -759,7 +752,7 @@ def submit_task_link(task_id: int, username: str, link: str) -> tuple[bool, str]
 def review_task(task_id: int, new_status: str) -> None:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE tasks SET status = ? WHERE id = ?", (new_status, task_id))
+        cursor.execute("UPDATE tasks SET status=? WHERE id=?", (new_status, task_id))
         conn.commit()
 
 
@@ -767,12 +760,7 @@ def get_tasks_for_user(username: str) -> list[dict]:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT id, title, description, link, status
-            FROM tasks
-            WHERE assigned_to = ?
-            ORDER BY id DESC
-            """,
+            "SELECT id,title,description,link,status FROM tasks WHERE assigned_to=? ORDER BY id DESC",
             (username,),
         )
         return rows_to_dicts(cursor.fetchall())
@@ -782,12 +770,7 @@ def get_pending_reviews() -> list[dict]:
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT id, assigned_to, title, description, link, status
-            FROM tasks
-            WHERE status = 'Pending Review'
-            ORDER BY id DESC
-            """
+            "SELECT id,assigned_to,title,description,link,status FROM tasks WHERE status='Pending Review' ORDER BY id DESC"
         )
         return rows_to_dicts(cursor.fetchall())
 
@@ -796,13 +779,11 @@ def get_supervisor_metrics() -> dict:
     today_logs = get_today_attendance()
     pending_reviews = get_pending_reviews()
     interns = list_interns()
-    active_clocked_in = sum(1 for row in today_logs if row["clock_out"] is None)
-
+    active_clocked_in = sum(1 for r in today_logs if r["clock_out"] is None)
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Assigned'")
+        cursor.execute("SELECT COUNT(*) AS count FROM tasks WHERE status='Assigned'")
         assigned_tasks = cursor.fetchone()["count"]
-
     return {
         "intern_count": len(interns),
         "today_logs": len(today_logs),
@@ -812,299 +793,305 @@ def get_supervisor_metrics() -> dict:
     }
 
 
-def render_page_hero(kicker: str, title: str, copy: str) -> None:
+# ─────────────────────────── UI PRIMITIVES ──────────────────────
+
+def render_login() -> None:
+    st.markdown('<div class="login-outer">', unsafe_allow_html=True)
+    _, col, _ = st.columns([0.05, 0.9, 0.05])
+    with col:
+        st.markdown(
+            """
+            <div class="login-card">
+                <div class="login-brand">
+                    <div>
+                        <div class="login-logo-row">
+                            <div class="login-logo-mark">BA</div>
+                            <div class="login-logo-name">Intern Tracker</div>
+                        </div>
+                        <div class="login-headline">Intern operations, simplified.</div>
+                        <div class="login-sub">Track attendance, manage tasks, and review intern submissions from a single secure workspace.</div>
+                    </div>
+                    <div class="login-features">
+                        <div class="login-feature">
+                            <div class="feat-icon">&#9651;</div>
+                            <div>
+                                <div class="feat-title">Role-gated access</div>
+                                <div class="feat-desc">Supervisor controls with intern-level restrictions built in.</div>
+                            </div>
+                        </div>
+                        <div class="login-feature">
+                            <div class="feat-icon">&#9711;</div>
+                            <div>
+                                <div class="feat-title">Attendance precision</div>
+                                <div class="feat-desc">Timestamped clock-in/out with live daily visibility.</div>
+                            </div>
+                        </div>
+                        <div class="login-feature">
+                            <div class="feat-icon">&#10003;</div>
+                            <div>
+                                <div class="feat-title">Review workflow</div>
+                                <div class="feat-desc">Approve or return work submissions in one click.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="login-form-area">
+                    <div class="login-eyebrow">Secure Access</div>
+                    <div class="login-title">Welcome back</div>
+                    <div class="login-caption">Enter your credentials to access the portal.</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username or email address")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in", use_container_width=True)
+        if submitted:
+            if login_user(username, password):
+                st.success("Signed in. Loading your workspace…")
+                st.rerun()
+            else:
+                st.error("Invalid username or password. Please try again.")
+        st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_sidebar() -> None:
+    with st.sidebar:
+        name = st.session_state.full_name
+        initials = "".join(p[0].upper() for p in name.split()[:2])
+        role = st.session_state.role.capitalize()
+        st.markdown(
+            f"""
+            <div class="sb-brand">
+                <div class="sb-logo-row">
+                    <div class="sb-logo-mark">BA</div>
+                    <div class="sb-app-name">Intern Tracker</div>
+                </div>
+                <div class="sb-sub">Operations &amp; Attendance Portal</div>
+            </div>
+            <div class="sb-user">
+                <div class="sb-avatar">{initials}</div>
+                <div>
+                    <div class="sb-user-name">{name}</div>
+                    <div class="sb-user-role">{role}</div>
+                </div>
+            </div>
+            <div class="sb-footer">
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Sign out", use_container_width=True):
+            logout_user()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_page_header(eyebrow: str, title: str, desc: str) -> None:
     st.markdown(
         f"""
-        <section class="page-hero">
-            <div class="hero-kicker">{kicker}</div>
-            <h1 class="hero-title">{title}</h1>
-            <div class="hero-copy">{copy}</div>
-        </section>
+        <div class="page-header">
+            <div class="page-eyebrow">{eyebrow}</div>
+            <h1 class="page-title">{title}</h1>
+            <p class="page-desc">{desc}</p>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_metric_cards(metrics: list[dict]) -> None:
-    columns = st.columns(len(metrics))
-    for column, metric in zip(columns, metrics):
-        with column:
+def render_stat_cards(stats: list[dict]) -> None:
+    cols = st.columns(len(stats))
+    for col, s in zip(cols, stats):
+        with col:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-label">{metric['label']}</div>
-                    <div class="metric-value">{metric['value']}</div>
-                    <div class="metric-note">{metric['note']}</div>
+                <div class="stat-card">
+                    <div class="stat-dot {s['dot']}"></div>
+                    <div class="stat-value">{s['value']}</div>
+                    <div class="stat-label">{s['label']}</div>
+                    <div class="stat-note">{s['note']}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
 
-def render_panel_header(title: str, copy: str) -> None:
+def render_section_header(title: str, desc: str) -> None:
     st.markdown(
-        f"""
-        <div class="panel-title">{title}</div>
-        <div class="panel-copy">{copy}</div>
-        """,
+        f'<div class="s-head"><div class="s-title">{title}</div><div class="s-desc">{desc}</div></div>',
         unsafe_allow_html=True,
     )
 
 
-def render_login() -> None:
-    st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
-    left, center, right = st.columns([0.03, 1, 0.03])
-    with center:
+def render_clock_status(is_clocked_in: bool) -> None:
+    if is_clocked_in:
         st.markdown(
             """
-            <section class="login-card">
-                <div class="login-brand">
-                    <div class="hero-kicker">Secure Workforce Portal</div>
-                    <h1>Intern operations designed for real teams.</h1>
-                    <p>
-                        Track attendance, route assignments, and control account access through a
-                        supervisor-first workflow that stays clean on desktop and mobile.
-                    </p>
-                    <div class="login-points">
-                        <div class="login-point"><strong>Role-gated access</strong><br/>Supervisor-only user management and password resets.</div>
-                        <div class="login-point"><strong>Attendance precision</strong><br/>Reliable clock events and daily operational visibility.</div>
-                        <div class="login-point"><strong>Submission reviews</strong><br/>Approve work artifacts or request revision from one dashboard.</div>
-                    </div>
+            <div class="clock-status cs-in">
+                <div class="cs-dot cs-dot-in"></div>
+                <div>
+                    <div class="cs-label">Current Status</div>
+                    <div class="cs-value-in">Clocked In</div>
                 </div>
-                <div class="login-form">
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown("<h2>Sign in to continue</h2>", unsafe_allow_html=True)
-        st.markdown(
-            "<p>Use your assigned supervisor or intern credentials to access the portal.</p>",
-            unsafe_allow_html=True,
-        )
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username or Email")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Access Dashboard", use_container_width=True)
-
-        if submitted:
-            if login_user(username, password):
-                st.success("Login successful. Loading your workspace...")
-                st.rerun()
-            else:
-                st.error("Invalid username or password.")
-
-        st.markdown("</div></section>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def render_sidebar() -> None:
-    with st.sidebar:
-        st.markdown(
-            """
-            <div class="sidebar-brand">
-                <div style="font-size:1.15rem;font-weight:800;">Intern Tracker</div>
-                <div class="sidebar-caption">Operations, attendance, and review workflow</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.write(f"**{st.session_state.full_name}**")
-        st.caption(f"Access role: {st.session_state.role}")
-        if st.button("Logout", type="secondary", use_container_width=True):
-            logout_user()
+    else:
+        st.markdown(
+            """
+            <div class="clock-status cs-out">
+                <div class="cs-dot cs-dot-out"></div>
+                <div>
+                    <div class="cs-label">Current Status</div>
+                    <div class="cs-value-out">Not Clocked In</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+
+# ─────────────────────────── DASHBOARDS ─────────────────────────
 
 def render_supervisor_dashboard() -> None:
     metrics = get_supervisor_metrics()
-    render_page_hero(
+    render_page_header(
         "Supervisor Workspace",
         "Team operations at a glance.",
-        "Review who is clocked in, dispatch work, and manage intern access from a single secure control center.",
+        "Review who is clocked in, dispatch work, and manage intern access from a single control centre.",
     )
+    render_stat_cards([
+        {"dot": "dot-blue",   "value": metrics["today_logs"],       "label": "Attendance Logs",  "note": "Recorded today"},
+        {"dot": "dot-violet", "value": metrics["assigned_tasks"],    "label": "Active Tasks",     "note": "Assigned to interns"},
+        {"dot": "dot-green",  "value": metrics["active_clocked_in"], "label": "Clocked In",       "note": "Currently working"},
+        {"dot": "dot-amber",  "value": metrics["pending_reviews"],   "label": "Pending Reviews",  "note": "Awaiting your action"},
+    ])
 
-    render_metric_cards(
-        [
-            {
-                "label": "Attendance Summary",
-                "value": metrics["today_logs"],
-                "note": "logs recorded for today's activity",
-            },
-            {
-                "label": "Active Tasks",
-                "value": metrics["assigned_tasks"],
-                "note": "tasks currently assigned to interns",
-            },
-            {
-                "label": "Live Clock Status",
-                "value": metrics["active_clocked_in"],
-                "note": "interns presently clocked in",
-            },
-            {
-                "label": "Pending Reviews",
-                "value": metrics["pending_reviews"],
-                "note": "submissions awaiting supervisor action",
-            },
-        ]
-    )
+    st.write("")
+    ops_tab, access_tab = st.tabs(["Team Operations", "User Access Management"])
 
-    operations_tab, access_tab = st.tabs(
-        ["Team Operations & Live Metrics", "User Access Management Control"]
-    )
+    with ops_tab:
+        left_col, right_col = st.columns((1.2, 1), gap="medium")
 
-    with operations_tab:
-        left, right = st.columns((1.2, 1))
-
-        with left:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
-                render_panel_header(
+        with left_col:
+            with st.container(border=True):
+                render_section_header(
                     "Today's Attendance Feed",
-                    "Monitor daily attendance events and see who is still active in real time.",
+                    "Live attendance events — see who is active right now.",
                 )
-                attendance_rows = get_today_attendance()
-                if attendance_rows:
-                    st.dataframe(attendance_rows, use_container_width=True, hide_index=True)
+                rows = get_today_attendance()
+                if rows:
+                    st.dataframe(rows, use_container_width=True, hide_index=True)
                 else:
-                    st.info("No attendance records have been logged today.")
-                st.markdown("</div>", unsafe_allow_html=True)
+                    st.info("No attendance records logged today.")
 
-        with right:
-            with st.container():
-                st.markdown('<div class="panel">', unsafe_allow_html=True)
-                render_panel_header(
+        with right_col:
+            with st.container(border=True):
+                render_section_header(
                     "Dispatch New Task",
-                    "Assign a clear piece of work to a specific intern with title and instructions.",
+                    "Assign a piece of work to a specific intern.",
                 )
                 interns = list_interns()
                 if interns:
                     intern_options = {
-                        f"{intern['full_name']} ({intern['username']})": intern["username"]
-                        for intern in interns
+                        f"{i['full_name']} ({i['username']})": i["username"] for i in interns
                     }
                     with st.form("dispatch_task_form", clear_on_submit=True):
-                        selected_label = st.selectbox("Assign To", list(intern_options.keys()))
-                        task_title = st.text_input("Task Title")
-                        task_description = st.text_area("Task Description", height=170)
-                        create_task_submit = st.form_submit_button(
-                            "Dispatch Task",
-                            use_container_width=True,
-                        )
-                    if create_task_submit:
-                        success, message = create_task(
-                            intern_options[selected_label],
-                            task_title,
-                            task_description,
-                        )
-                        (st.success if success else st.error)(message)
-                        if success:
-                            st.rerun()
+                        selected_label = st.selectbox("Assign to", list(intern_options.keys()))
+                        task_title = st.text_input("Task title")
+                        task_description = st.text_area("Instructions", height=120)
+                        if st.form_submit_button("Dispatch Task", use_container_width=True):
+                            ok, msg = create_task(intern_options[selected_label], task_title, task_description)
+                            (st.success if ok else st.error)(msg)
+                            if ok:
+                                st.rerun()
                 else:
                     st.warning("Create at least one intern account before dispatching tasks.")
-                st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Pending Task Reviews",
-            "Approve submitted artifacts or return them for revision with one click.",
-        )
-        pending_reviews = get_pending_reviews()
-        if pending_reviews:
-            for task in pending_reviews:
-                with st.container(border=True):
-                    top_left, top_right = st.columns((1.5, 1))
-                    with top_left:
-                        st.markdown(f"**{task['title']}**")
-                        st.caption(f"Assigned to: {task['assigned_to']}")
-                        st.write(task["description"] or "No description provided.")
-                    with top_right:
-                        st.markdown(
-                            f"<div class='badge'>Submission #{task['id']}</div>",
-                            unsafe_allow_html=True,
-                        )
-                        st.write(f"Artifact URL: {task['link']}")
-
-                    action_col1, action_col2 = st.columns(2)
-                    with action_col1:
-                        if st.button(
-                            f"Approve #{task['id']}",
-                            key=f"approve_{task['id']}",
-                            use_container_width=True,
-                        ):
+        st.write("")
+        with st.container(border=True):
+            render_section_header(
+                "Pending Reviews",
+                "Approve submitted artifacts or return them for revision.",
+            )
+            pending = get_pending_reviews()
+            if pending:
+                for task in pending:
+                    st.markdown(
+                        f"""
+                        <div class="review-item">
+                            <div class="review-badge">Submission #{task['id']}</div>
+                            <div class="review-title">{task['title']}</div>
+                            <div class="review-meta">Assigned to {task['assigned_to']}</div>
+                            <div class="review-desc">{task['description'] or 'No description provided.'}</div>
+                            <div class="review-link">{task['link']}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button(f"Approve #{task['id']}", key=f"approve_{task['id']}", use_container_width=True):
                             review_task(task["id"], "Approved")
                             st.success(f"Task #{task['id']} approved.")
                             st.rerun()
-                    with action_col2:
-                        if st.button(
-                            f"Revision Needed #{task['id']}",
-                            key=f"revise_{task['id']}",
-                            use_container_width=True,
-                        ):
+                    with c2:
+                        if st.button(f"Request Revision #{task['id']}", key=f"revise_{task['id']}", use_container_width=True, type="secondary"):
                             review_task(task["id"], "Revision Needed")
-                            st.warning(f"Task #{task['id']} marked for revision.")
+                            st.warning(f"Task #{task['id']} returned for revision.")
                             st.rerun()
-        else:
-            st.info("No pending task submissions right now.")
-        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("No pending submissions right now.")
 
     with access_tab:
-        left, right = st.columns(2)
-        with left:
-            st.markdown('<div class="panel">', unsafe_allow_html=True)
-            render_panel_header(
-                "Create New Intern",
-                "Provision intern credentials directly from the supervisor control panel.",
-            )
-            with st.form("create_intern_form", clear_on_submit=True):
-                new_username = st.text_input("Username")
-                new_password = st.text_input("Password", type="password")
-                new_full_name = st.text_input("Full Name")
-                create_intern_submit = st.form_submit_button(
-                    "Create Intern",
-                    use_container_width=True,
-                )
-            if create_intern_submit:
-                success, message = create_intern(new_username, new_password, new_full_name)
-                (st.success if success else st.error)(message)
-                if success:
-                    st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        left_col, right_col = st.columns(2, gap="medium")
 
-        with right:
-            st.markdown('<div class="panel">', unsafe_allow_html=True)
-            render_panel_header(
-                "Reset Intern Password",
-                "Overwrite an intern password if they lose access. Interns cannot reset their own passwords.",
+        with left_col:
+            with st.container(border=True):
+                render_section_header(
+                    "Create Intern Account",
+                    "Provision new intern credentials from this panel.",
+                )
+                with st.form("create_intern_form", clear_on_submit=True):
+                    new_username  = st.text_input("Username")
+                    new_password  = st.text_input("Password", type="password")
+                    new_full_name = st.text_input("Full name")
+                    if st.form_submit_button("Create Account", use_container_width=True):
+                        ok, msg = create_intern(new_username, new_password, new_full_name)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
+
+        with right_col:
+            with st.container(border=True):
+                render_section_header(
+                    "Reset Intern Password",
+                    "Overwrite a password if an intern loses access.",
+                )
+                interns = list_interns()
+                if interns:
+                    reset_options = [i["username"] for i in interns]
+                    with st.form("reset_password_form", clear_on_submit=True):
+                        reset_username = st.selectbox("Intern", reset_options)
+                        new_pw = st.text_input("New password", type="password")
+                        if st.form_submit_button("Reset Password", use_container_width=True):
+                            ok, msg = reset_intern_password(reset_username, new_pw)
+                            (st.success if ok else st.error)(msg)
+                else:
+                    st.info("No intern accounts exist yet.")
+
+        st.write("")
+        with st.container(border=True):
+            render_section_header(
+                "Intern Directory",
+                "All active intern accounts managed by supervisors.",
             )
             interns = list_interns()
             if interns:
-                reset_options = [intern["username"] for intern in interns]
-                with st.form("reset_password_form", clear_on_submit=True):
-                    reset_username = st.selectbox("Intern Username", reset_options)
-                    replacement_password = st.text_input("New Password", type="password")
-                    reset_submit = st.form_submit_button(
-                        "Overwrite Password",
-                        use_container_width=True,
-                    )
-                if reset_submit:
-                    success, message = reset_intern_password(
-                        reset_username,
-                        replacement_password,
-                    )
-                    (st.success if success else st.error)(message)
+                st.dataframe(interns, use_container_width=True, hide_index=True)
             else:
-                st.info("No intern accounts are available to reset yet.")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Intern Directory",
-            "Current active intern accounts managed by supervisor-level users.",
-        )
-        interns = list_interns()
-        if interns:
-            st.dataframe(interns, use_container_width=True, hide_index=True)
-        else:
-            st.info("No intern accounts have been created yet.")
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.info("No intern accounts have been created yet.")
 
 
 def render_intern_dashboard() -> None:
@@ -1112,130 +1099,96 @@ def render_intern_dashboard() -> None:
     full_name = st.session_state.full_name
     open_record = get_open_attendance_record(username)
     tasks = get_tasks_for_user(username)
-    approved_tasks = [task for task in tasks if task["status"] == "Approved"]
-    pending_items = [
-        task for task in tasks if task["status"] in {"Assigned", "Revision Needed"}
-    ]
+    approved_tasks = [t for t in tasks if t["status"] == "Approved"]
+    pending_tasks  = [t for t in tasks if t["status"] in {"Assigned", "Revision Needed"}]
 
-    render_page_hero(
+    render_page_header(
         "Intern Workspace",
         f"Welcome, {full_name}.",
-        "Clock your workday, submit artifacts for review, and keep a simple history of your approved assignments.",
+        "Clock your workday, submit assignment artifacts, and track your approvals.",
     )
+    render_stat_cards([
+        {
+            "dot": "dot-green" if open_record else "dot-blue",
+            "value": "In" if open_record else "Out",
+            "label": "Clock Status",
+            "note": current_date_string(),
+        },
+        {"dot": "dot-amber",  "value": len(pending_tasks),  "label": "Pending Tasks",  "note": "Assigned or needs revision"},
+        {"dot": "dot-violet", "value": len(approved_tasks), "label": "Approved Items", "note": "Reviewed by supervisor"},
+    ])
 
-    render_metric_cards(
-        [
-            {
-                "label": "Clock Status",
-                "value": "Clocked In" if open_record else "Clocked Out",
-                "note": current_date_string(),
-            },
-            {
-                "label": "Pending Tasks",
-                "value": len(pending_items),
-                "note": "assigned or returned for revision",
-            },
-            {
-                "label": "Approved Items",
-                "value": len(approved_tasks),
-                "note": "submissions approved by a supervisor",
-            },
-        ]
-    )
+    st.write("")
+    left_col, right_col = st.columns(2, gap="medium")
 
-    left, right = st.columns((1, 1))
+    with left_col:
+        with st.container(border=True):
+            render_section_header(
+                "Attendance",
+                "Start or end your session with an accurate timestamp.",
+            )
+            render_clock_status(bool(open_record))
+            if open_record:
+                if st.button("Clock Out", type="primary", use_container_width=True):
+                    ok, msg = clock_out(username)
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        st.rerun()
+            else:
+                if st.button("Clock In", type="primary", use_container_width=True):
+                    ok, msg = clock_in(username)
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        st.rerun()
 
-    with left:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Attendance Status",
-            "Use the primary action below to start or end your day with an accurate timestamp.",
-        )
-        st.markdown(
-            f"""
-            <div class="status-banner">
-                <div class="status-title">Current State</div>
-                <div class="status-value">{'Clocked In' if open_record else 'Ready to Clock In'}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown('<div class="clock-button">', unsafe_allow_html=True)
-        if open_record:
-            if st.button("Clock Out", type="primary", use_container_width=True):
-                success, message = clock_out(username)
-                (st.success if success else st.error)(message)
-                if success:
-                    st.rerun()
-        else:
-            if st.button("Clock In", type="primary", use_container_width=True):
-                success, message = clock_in(username)
-                (st.success if success else st.error)(message)
-                if success:
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            render_section_header(
+                "Attendance History",
+                "Your recent sessions and completion status.",
+            )
+            history = get_user_attendance_history(username)
+            if history:
+                st.dataframe(history, use_container_width=True, hide_index=True)
+            else:
+                st.info("No attendance history yet.")
 
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Attendance History",
-            "Review your recent attendance sessions and their completion status.",
-        )
-        history = get_user_attendance_history(username)
-        if history:
-            st.dataframe(history, use_container_width=True, hide_index=True)
-        else:
-            st.info("No attendance history available yet.")
-        st.markdown("</div>", unsafe_allow_html=True)
+    with right_col:
+        with st.container(border=True):
+            render_section_header(
+                "Submit Assignment",
+                "Attach the artifact URL for a task so your supervisor can review it.",
+            )
+            submittable = [t for t in tasks if t["status"] in {"Assigned", "Revision Needed"}]
+            if submittable:
+                task_options = {
+                    f"#{t['id']} — {t['title']} ({t['status']})": t["id"] for t in submittable
+                }
+                with st.form("submit_artifact_form", clear_on_submit=True):
+                    selected_task = st.selectbox("Task", list(task_options.keys()))
+                    artifact_link = st.text_input("Artifact URL")
+                    if st.form_submit_button("Submit for Review", use_container_width=True):
+                        ok, msg = submit_task_link(task_options[selected_task], username, artifact_link)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
+            else:
+                st.info("No tasks currently available for submission.")
 
-    with right:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Submit Assignment Artifact",
-            "Attach the URL for the work you completed so it can be reviewed by your supervisor.",
-        )
-        submittable_tasks = [
-            task for task in tasks if task["status"] in {"Assigned", "Revision Needed"}
-        ]
-        if submittable_tasks:
-            task_options = {
-                f"#{task['id']} - {task['title']} ({task['status']})": task["id"]
-                for task in submittable_tasks
-            }
-            with st.form("submit_artifact_form", clear_on_submit=True):
-                selected_task = st.selectbox("Task", list(task_options.keys()))
-                artifact_link = st.text_input("Assignment Artifact URL")
-                submit_artifact = st.form_submit_button(
-                    "Submit Link",
-                    use_container_width=True,
-                )
-            if submit_artifact:
-                success, message = submit_task_link(
-                    task_options[selected_task],
-                    username,
-                    artifact_link,
-                )
-                (st.success if success else st.error)(message)
-                if success:
-                    st.rerun()
-        else:
-            st.info("No tasks are currently available for submission.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            render_section_header(
+                "Approved Submissions",
+                "Items reviewed and approved by your supervisor.",
+            )
+            if approved_tasks:
+                st.dataframe(approved_tasks, use_container_width=True, hide_index=True)
+            else:
+                st.info("Approved items will appear here after supervisor review.")
 
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        render_panel_header(
-            "Approved Submission History",
-            "Your approved items stay visible here for easy reference.",
-        )
-        if approved_tasks:
-            st.dataframe(approved_tasks, use_container_width=True, hide_index=True)
-        else:
-            st.info("Approved items will appear here after supervisor review.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
+# ─────────────────────────── MAIN ───────────────────────────────
 
 def main() -> None:
-    inject_responsive_styles()
+    inject_styles()
     init_db()
     init_session_state()
 
