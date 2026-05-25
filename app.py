@@ -35,8 +35,9 @@ st.set_page_config(
 # ─────────────────────────── STYLES ────────────────────────────
 
 def inject_styles() -> None:
+    # Wrap in a zero-height fixed container so st.markdown doesn't add layout space
     st.markdown(
-        """
+        """<div style="position:fixed;height:0;width:0;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;">
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -46,8 +47,30 @@ def inject_styles() -> None:
             -webkit-font-smoothing: antialiased;
         }
         .stApp { background: #F0F4F8 !important; }
-        .block-container {
-            padding: 1rem 2rem 3rem !important;
+
+        /* ── Remove ALL Streamlit top spacing ── */
+        header[data-testid="stHeader"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stToolbar"] {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+        }
+        [data-testid="stAppViewContainer"] {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        [data-testid="stMain"],
+        section.main {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        .block-container,
+        [data-testid="stMainBlockContainer"] {
+            padding-top: 1rem !important;
+            padding-bottom: 2rem !important;
+            margin-top: 0 !important;
             max-width: 1320px !important;
         }
         #MainMenu, header[data-testid="stHeader"], footer { display: none !important; }
@@ -487,9 +510,10 @@ def inject_styles() -> None:
             .login-brand { display: none; }
         }
         @media (max-width: 768px) {
-            .block-container { padding: 1rem 0.75rem 2rem !important; }
+            .block-container,
+            [data-testid="stMainBlockContainer"] { padding: 1rem 0.75rem 2rem !important; }
         }
-        </style>
+        </style></div>
         """,
         unsafe_allow_html=True,
     )
