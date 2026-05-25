@@ -227,125 +227,59 @@ def inject_styles() -> None:
             box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
         }
 
-        /* ── Login ── */
-        .login-card {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            width: min(1020px, 100%);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #E5E7EB;
-        }
-        .login-brand {
-            padding: 3rem 2.5rem;
-            background: linear-gradient(150deg, #1A3A5C 0%, #0F172A 100%);
+        /* ── Login (LinkedIn-style) ── */
+        .ln-brand-row {
             display: flex;
             flex-direction: column;
-            gap: 1.75rem;
-        }
-        .login-logo-row {
-            display: flex;
             align-items: center;
-            gap: 0.65rem;
+            text-align: center;
+            padding: 2rem 0 1.25rem;
+            gap: 0.5rem;
         }
-        .login-logo-mark {
-            width: 38px;
-            height: 38px;
+        .ln-logo-mark {
+            width: 52px;
+            height: 52px;
             background: #2563EB;
-            border-radius: 10px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.82rem;
+            font-size: 1.1rem;
             font-weight: 800;
             color: #FFFFFF;
+            letter-spacing: -0.5px;
         }
-        .login-logo-name {
+        .ln-brand-name {
             font-size: 1rem;
             font-weight: 700;
-            color: #F9FAFB;
+            color: #374151;
         }
-        .login-headline {
-            font-size: clamp(1.6rem, 2.2vw, 2.15rem);
-            font-weight: 800;
-            color: #FFFFFF;
-            line-height: 1.18;
-            letter-spacing: -0.04em;
+        .ln-card-head {
+            padding: 0.25rem 0 0.75rem;
         }
-        .login-sub {
-            font-size: 0.925rem;
-            color: rgba(249,250,251,0.58);
-            line-height: 1.6;
-            margin-top: -0.75rem;
-        }
-        .login-features {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            margin-top: auto;
-        }
-        .login-feature {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 0.875rem 1rem;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 12px;
-        }
-        .feat-icon {
-            width: 30px;
-            height: 30px;
-            min-width: 30px;
-            background: rgba(37,99,235,0.22);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.88rem;
-            color: #93C5FD;
-            font-weight: 700;
-        }
-        .feat-title {
-            font-size: 0.86rem;
-            font-weight: 600;
-            color: #F9FAFB;
-            margin-bottom: 0.1rem;
-        }
-        .feat-desc {
-            font-size: 0.78rem;
-            color: rgba(249,250,251,0.48);
-            line-height: 1.4;
-        }
-        .login-form-area {
-            padding: 3rem 2.75rem;
-            background: #FFFFFF;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .login-eyebrow {
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #2563EB;
-            margin-bottom: 0.5rem;
-        }
-        .login-title {
-            font-size: 1.65rem;
+        .ln-heading {
+            font-size: 1.55rem;
             font-weight: 800;
             color: #111827;
             letter-spacing: -0.03em;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
             line-height: 1.2;
         }
-        .login-caption {
+        .ln-sub {
             font-size: 0.875rem;
             color: #6B7280;
-            margin-bottom: 1.75rem;
             line-height: 1.5;
+        }
+        .ln-footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #B0B8C4;
+            margin-top: 1.25rem;
+            padding-bottom: 2rem;
+        }
+        /* Slightly bigger shadow on the login card */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
         }
 
         /* ── Page header ── */
@@ -505,9 +439,8 @@ def inject_styles() -> None:
         .sb-user-role { font-size: 0.75rem; color: rgba(249,250,251,0.38); text-transform: capitalize; }
         .sb-footer    { padding: 0 1.25rem 1.5rem; }
 
-        @media (max-width: 980px) {
-            .login-card { grid-template-columns: 1fr; }
-            .login-brand { display: none; }
+        @media (max-width: 768px) {
+            .ln-brand-row { padding: 1rem 0 0.75rem; }
         }
         @media (max-width: 768px) {
             .block-container,
@@ -814,62 +747,43 @@ def get_supervisor_metrics() -> dict:
 # ─────────────────────────── UI PRIMITIVES ──────────────────────
 
 def render_login() -> None:
-    _, col, _ = st.columns([0.05, 0.9, 0.05])
+    _, col, _ = st.columns([1, 1, 1])
     with col:
+        # Logo + app name above the card
         st.markdown(
             """
-            <div class="login-card">
-                <div class="login-brand">
-                    <div>
-                        <div class="login-logo-row">
-                            <div class="login-logo-mark">BA</div>
-                            <div class="login-logo-name">Intern Tracker</div>
-                        </div>
-                        <div class="login-headline">Intern operations, simplified.</div>
-                        <div class="login-sub">Track attendance, manage tasks, and review intern submissions from a single secure workspace.</div>
-                    </div>
-                    <div class="login-features">
-                        <div class="login-feature">
-                            <div class="feat-icon">&#9651;</div>
-                            <div>
-                                <div class="feat-title">Role-gated access</div>
-                                <div class="feat-desc">Supervisor controls with intern-level restrictions built in.</div>
-                            </div>
-                        </div>
-                        <div class="login-feature">
-                            <div class="feat-icon">&#9711;</div>
-                            <div>
-                                <div class="feat-title">Attendance precision</div>
-                                <div class="feat-desc">Timestamped clock-in/out with live daily visibility.</div>
-                            </div>
-                        </div>
-                        <div class="login-feature">
-                            <div class="feat-icon">&#10003;</div>
-                            <div>
-                                <div class="feat-title">Review workflow</div>
-                                <div class="feat-desc">Approve or return work submissions in one click.</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="login-form-area">
-                    <div class="login-eyebrow">Secure Access</div>
-                    <div class="login-title">Welcome back</div>
-                    <div class="login-caption">Enter your credentials to access the portal.</div>
+            <div class="ln-brand-row">
+                <div class="ln-logo-mark">BA</div>
+                <div class="ln-brand-name">Intern Tracker</div>
+            </div>
             """,
             unsafe_allow_html=True,
         )
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username or email address")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Sign in", use_container_width=True)
+        # Login card
+        with st.container(border=True):
+            st.markdown(
+                """
+                <div class="ln-card-head">
+                    <div class="ln-heading">Sign in</div>
+                    <div class="ln-sub">Access your operations workspace.</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            with st.form("login_form", clear_on_submit=False):
+                username = st.text_input("Email or username")
+                password = st.text_input("Password", type="password")
+                submitted = st.form_submit_button("Sign in", use_container_width=True)
         if submitted:
             if login_user(username, password):
                 st.success("Signed in. Loading your workspace…")
                 st.rerun()
             else:
-                st.error("Invalid username or password. Please try again.")
-        st.markdown("</div></div>", unsafe_allow_html=True)
+                st.error("Invalid credentials. Please try again.")
+        st.markdown(
+            '<p class="ln-footer">© 2025 Sphere Global &middot; BA Intern Tracker</p>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_sidebar() -> None:
