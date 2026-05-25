@@ -47,7 +47,7 @@ def inject_styles() -> None:
         }
         .stApp { background: #F0F4F8 !important; }
         .block-container {
-            padding: 1.75rem 2rem 3rem !important;
+            padding: 1rem 2rem 3rem !important;
             max-width: 1320px !important;
         }
         #MainMenu, header[data-testid="stHeader"], footer { display: none !important; }
@@ -205,12 +205,6 @@ def inject_styles() -> None:
         }
 
         /* ── Login ── */
-        .login-outer {
-            min-height: calc(100vh - 3rem);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
         .login-card {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -796,7 +790,6 @@ def get_supervisor_metrics() -> dict:
 # ─────────────────────────── UI PRIMITIVES ──────────────────────
 
 def render_login() -> None:
-    st.markdown('<div class="login-outer">', unsafe_allow_html=True)
     _, col, _ = st.columns([0.05, 0.9, 0.05])
     with col:
         st.markdown(
@@ -853,7 +846,6 @@ def render_login() -> None:
             else:
                 st.error("Invalid username or password. Please try again.")
         st.markdown("</div></div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_sidebar() -> None:
