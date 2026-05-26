@@ -8,5 +8,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: DB_PATH
-        value: app_secure_responsive.db
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        sync: false

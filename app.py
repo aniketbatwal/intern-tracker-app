@@ -1,27 +1,53 @@
+import calendar
 import hashlib
 import os
-import sqlite3
-from contextlib import closing
-from datetime import datetime
-from pathlib import Path
+import secrets
+from contextlib import contextmanager
+from datetime import datetime, timezone, timedelta
 
+import psycopg2
+import psycopg2.extras
+import psycopg2.errors
+import pytz
 import streamlit as st
+import extra_streamlit_components as stx
 
+try:
+    from supabase import create_client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
 
-DB_PATH = Path(os.getenv("DB_PATH", "app_secure_responsive.db"))
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "intern-uploads")
+
 SUPERVISOR_ACCOUNTS = [
     {
         "username": "admin",
         "password": "SuperSecureAdmin2026",
         "role": "supervisor",
         "full_name": "Master Supervisor",
+        "timezone": "UTC",
     },
     {
         "username": "aniket.batwal@sphereglobal.com",
         "password": "Pass@123",
         "role": "supervisor",
         "full_name": "Aniket Batwal",
+        "timezone": "Asia/Kolkata",
     },
+]
+
+TIMEZONE_OPTIONS = [
+    "UTC",
+    "Europe/London",
+    "Asia/Kolkata",
+    "America/New_York",
+    "America/Los_Angeles",
+    "Asia/Dubai",
+    "Asia/Singapore",
 ]
 
 st.set_page_config(
@@ -35,7 +61,6 @@ st.set_page_config(
 # ─────────────────────────── STYLES ────────────────────────────
 
 def inject_styles() -> None:
-    # Wrap in a zero-height fixed container so st.markdown doesn't add layout space
     st.markdown(
         """<div style="position:fixed;height:0;width:0;overflow:hidden;opacity:0;pointer-events:none;z-index:-1;">
         <style>
@@ -224,7 +249,7 @@ def inject_styles() -> None:
             border: 1px solid #E5E7EB !important;
             border-radius: 14px !important;
             background: #FFFFFF !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
         }
 
         /* ── Login (LinkedIn-style) ── */
@@ -276,10 +301,6 @@ def inject_styles() -> None:
             color: #B0B8C4;
             margin-top: 1.25rem;
             padding-bottom: 2rem;
-        }
-        /* Slightly bigger shadow on the login card */
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
         }
 
         /* ── Page header ── */
@@ -439,10 +460,122 @@ def inject_styles() -> None:
         .sb-user-role { font-size: 0.75rem; color: rgba(249,250,251,0.38); text-transform: capitalize; }
         .sb-footer    { padding: 0 1.25rem 1.5rem; }
 
+        /* ── Attendance Calendar ── */
+        .cal-wrapper {
+            padding: 0.5rem 0;
+        }
+        .cal-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .cal-month-label {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .cal-day-header {
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #9CA3AF;
+            padding: 4px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .cal-day {
+            border-radius: 8px;
+            padding: 6px 4px;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #374151;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cal-day-empty {
+            background: transparent;
+        }
+        .cal-day-present {
+            background: #ECFDF5;
+            color: #065F46;
+            font-weight: 600;
+        }
+        .cal-day-absent {
+            background: #FEF2F2;
+            color: #991B1B;
+        }
+        .cal-day-holiday {
+            background: #EFF6FF;
+            color: #1D4ED8;
+            font-weight: 600;
+        }
+        .cal-day-weekend {
+            background: #F9FAFB;
+            color: #9CA3AF;
+        }
+        .cal-day-future {
+            background: #FFFFFF;
+            color: #D1D5DB;
+        }
+        .cal-day-today {
+            outline: 2px solid #2563EB;
+            outline-offset: -2px;
+        }
+        .cal-legend {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .cal-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            color: #6B7280;
+        }
+        .cal-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .legend-present  { background: #10B981; }
+        .legend-absent   { background: #EF4444; }
+        .legend-holiday  { background: #3B82F6; }
+        .legend-weekend  { background: #D1D5DB; }
+
+        /* ── Holiday list ── */
+        .holiday-item {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .holiday-title {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #1D4ED8;
+        }
+        .holiday-date {
+            font-size: 0.78rem;
+            color: #6B7280;
+        }
+
         @media (max-width: 768px) {
             .ln-brand-row { padding: 1rem 0 0.75rem; }
-        }
-        @media (max-width: 768px) {
             .block-container,
             [data-testid="stMainBlockContainer"] { padding: 1rem 0.75rem 2rem !important; }
         }
@@ -452,30 +585,40 @@ def inject_styles() -> None:
     )
 
 
+# ─────────────────────────── ENV CHECK ──────────────────────────
+
+def check_env() -> None:
+    if not DATABASE_URL:
+        st.error(
+            "DATABASE_URL environment variable is not set. "
+            "Please configure a PostgreSQL connection string."
+        )
+        st.stop()
+
+
 # ─────────────────────────── DATABASE ───────────────────────────
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+@contextmanager
+def get_connection():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def rows_to_dicts(rows) -> list[dict]:
-    return [dict(row) for row in rows]
-
-
 def init_db() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
+
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 role TEXT NOT NULL,
@@ -484,9 +627,13 @@ def init_db() -> None:
             """
         )
         cursor.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC'"
+        )
+
+        cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS attendance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 username TEXT NOT NULL,
                 date TEXT NOT NULL,
                 clock_in TEXT,
@@ -495,10 +642,11 @@ def init_db() -> None:
             )
             """
         )
+
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 assigned_to TEXT NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
@@ -507,29 +655,154 @@ def init_db() -> None:
             )
             """
         )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                id SERIAL PRIMARY KEY,
+                token TEXT UNIQUE NOT NULL,
+                username TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS uploads (
+                id SERIAL PRIMARY KEY,
+                username TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                storage_path TEXT NOT NULL,
+                file_url TEXT NOT NULL,
+                uploaded_at TEXT NOT NULL
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS holidays (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                holiday_date TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
         for account in SUPERVISOR_ACCOUNTS:
-            cursor.execute("SELECT id FROM users WHERE username=?", (account["username"],))
+            cursor.execute("SELECT id FROM users WHERE username=%s", (account["username"],))
             existing = cursor.fetchone()
-            vals = (hash_password(account["password"]), account["role"], account["full_name"], account["username"])
             if existing:
-                cursor.execute("UPDATE users SET password=?,role=?,full_name=? WHERE username=?", vals)
+                cursor.execute(
+                    "UPDATE users SET password=%s, role=%s, full_name=%s, timezone=%s WHERE username=%s",
+                    (
+                        hash_password(account["password"]),
+                        account["role"],
+                        account["full_name"],
+                        account["timezone"],
+                        account["username"],
+                    ),
+                )
             else:
-                cursor.execute("INSERT INTO users (password,role,full_name,username) VALUES (?,?,?,?)", vals)
+                cursor.execute(
+                    "INSERT INTO users (username, password, role, full_name, timezone) VALUES (%s, %s, %s, %s, %s)",
+                    (
+                        account["username"],
+                        hash_password(account["password"]),
+                        account["role"],
+                        account["full_name"],
+                        account["timezone"],
+                    ),
+                )
+
         conn.commit()
 
 
-# ─────────────────────────── AUTH ───────────────────────────────
+# ─────────────────────────── TIME HELPERS ───────────────────────
+
+def utc_date_string() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def utc_timestamp_string() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00:00")
+
+
+def format_ts_local(ts_str: str, tz_name: str) -> str:
+    if not ts_str:
+        return ""
+    try:
+        if ts_str.endswith("+00:00"):
+            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S+00:00").replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        local_tz = pytz.timezone(tz_name or "UTC")
+        local_dt = dt.astimezone(local_tz)
+        return local_dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+    except Exception:
+        return ts_str
+
+
+# ─────────────────────────── SESSION / AUTH ─────────────────────
 
 def init_session_state() -> None:
-    for key, val in {"authenticated": False, "username": "", "role": "", "full_name": ""}.items():
+    defaults = {
+        "authenticated": False,
+        "username": "",
+        "role": "",
+        "full_name": "",
+        "timezone": "UTC",
+        "session_token": "",
+        "cal_year": datetime.now(timezone.utc).year,
+        "cal_month": datetime.now(timezone.utc).month,
+    }
+    for key, val in defaults.items():
         st.session_state.setdefault(key, val)
 
 
-def login_user(username: str, password: str) -> bool:
-    with closing(get_connection()) as conn:
+def create_session(username: str) -> str:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT username,role,full_name FROM users WHERE username=? AND password=?",
+            "INSERT INTO sessions (token, username, expires_at) VALUES (%s, %s, %s)",
+            (token, username, expires_at),
+        )
+        conn.commit()
+    return token
+
+
+def validate_session(token: str):
+    if not token:
+        return None
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT username FROM sessions WHERE token=%s AND expires_at > NOW()",
+            (token,),
+        )
+        row = cursor.fetchone()
+    return row["username"] if row else None
+
+
+def delete_session(token: str) -> None:
+    if not token:
+        return
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sessions WHERE token=%s", (token,))
+        conn.commit()
+
+
+def login_user(username: str, password: str, cm) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT username, role, full_name, timezone FROM users WHERE username=%s AND password=%s",
             (username.strip(), hash_password(password)),
         )
         user = cursor.fetchone()
@@ -539,26 +812,59 @@ def login_user(username: str, password: str) -> bool:
     st.session_state.username = user["username"]
     st.session_state.role = user["role"]
     st.session_state.full_name = user["full_name"]
+    st.session_state.timezone = user["timezone"] or "UTC"
+    token = create_session(user["username"])
+    st.session_state.session_token = token
+    try:
+        cm.set("bt_session", token, expires_at=datetime.now(timezone.utc) + timedelta(days=30))
+    except Exception:
+        pass
     return True
 
 
-def logout_user() -> None:
-    for key in ("authenticated", "username", "role", "full_name"):
+def restore_session_from_cookie(cm) -> None:
+    try:
+        token = cm.get("bt_session")
+        if not token:
+            return
+        username = validate_session(token)
+        if not username:
+            return
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT username, role, full_name, timezone FROM users WHERE username=%s",
+                (username,),
+            )
+            user = cursor.fetchone()
+        if not user:
+            return
+        st.session_state.authenticated = True
+        st.session_state.username = user["username"]
+        st.session_state.role = user["role"]
+        st.session_state.full_name = user["full_name"]
+        st.session_state.timezone = user["timezone"] or "UTC"
+        st.session_state.session_token = token
+    except Exception:
+        pass
+
+
+def logout_user(cm) -> None:
+    token = st.session_state.get("session_token", "")
+    if token:
+        delete_session(token)
+    try:
+        cm.delete("bt_session")
+    except Exception:
+        pass
+    for key in ("authenticated", "username", "role", "full_name", "timezone", "session_token"):
         st.session_state[key] = False if key == "authenticated" else ""
     st.rerun()
 
 
-# ─────────────────────────── DATA ───────────────────────────────
+# ─────────────────────────── DATA: USERS ────────────────────────
 
-def current_date_string() -> str:
-    return datetime.now().strftime("%Y-%m-%d")
-
-
-def current_timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def create_intern(username: str, password: str, full_name: str) -> tuple[bool, str]:
+def create_intern(username: str, password: str, full_name: str, tz: str = "UTC") -> tuple[bool, str]:
     username = username.strip()
     full_name = full_name.strip()
     if not username or not password or not full_name:
@@ -567,31 +873,31 @@ def create_intern(username: str, password: str, full_name: str) -> tuple[bool, s
     if username.lower() in reserved:
         return False, "That username is reserved for a supervisor account."
     try:
-        with closing(get_connection()) as conn:
+        with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO users (username,password,role,full_name) VALUES (?,?,?,?)",
-                (username, hash_password(password), "intern", full_name),
+                "INSERT INTO users (username, password, role, full_name, timezone) VALUES (%s, %s, %s, %s, %s)",
+                (username, hash_password(password), "intern", full_name, tz),
             )
             conn.commit()
         return True, f"Intern account '{username}' created successfully."
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
         return False, "That username already exists."
 
 
 def reset_intern_password(username: str, new_password: str) -> tuple[bool, str]:
     if not username or not new_password:
         return False, "Username and new password are required."
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT role FROM users WHERE username=?", (username.strip(),))
+        cursor.execute("SELECT role FROM users WHERE username=%s", (username.strip(),))
         user = cursor.fetchone()
         if not user:
             return False, "Intern account not found."
         if user["role"] != "intern":
             return False, "Only intern passwords can be changed here."
         cursor.execute(
-            "UPDATE users SET password=? WHERE username=?",
+            "UPDATE users SET password=%s WHERE username=%s",
             (hash_password(new_password), username.strip()),
         )
         conn.commit()
@@ -599,32 +905,44 @@ def reset_intern_password(username: str, new_password: str) -> tuple[bool, str]:
 
 
 def list_interns() -> list[dict]:
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT username,full_name FROM users WHERE role='intern' ORDER BY full_name COLLATE NOCASE"
+            "SELECT username, full_name, timezone FROM users WHERE role='intern' ORDER BY full_name"
         )
-        return rows_to_dicts(cursor.fetchall())
+        return list(cursor.fetchall())
 
+
+def get_intern_timezone(username: str) -> str:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT timezone FROM users WHERE username=%s", (username,))
+        row = cursor.fetchone()
+    return row["timezone"] if row and row["timezone"] else "UTC"
+
+
+# ─────────────────────────── DATA: ATTENDANCE ───────────────────
 
 def get_open_attendance_record(username: str):
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM attendance WHERE username=? AND date=? AND clock_out IS NULL ORDER BY id DESC LIMIT 1",
-            (username, current_date_string()),
+            "SELECT * FROM attendance WHERE username=%s AND clock_out IS NULL ORDER BY id DESC LIMIT 1",
+            (username,),
         )
         return cursor.fetchone()
 
 
 def clock_in(username: str) -> tuple[bool, str]:
     if get_open_attendance_record(username):
-        return False, "You are already clocked in for today."
-    with closing(get_connection()) as conn:
+        return False, "You are already clocked in."
+    now_ts = utc_timestamp_string()
+    now_date = utc_date_string()
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO attendance (username,date,clock_in,clock_out,status) VALUES (?,?,?,?,?)",
-            (username, current_date_string(), current_timestamp(), None, "Clocked In"),
+            "INSERT INTO attendance (username, date, clock_in, clock_out, status) VALUES (%s, %s, %s, %s, %s)",
+            (username, now_date, now_ts, None, "Clocked In"),
         )
         conn.commit()
     return True, "Clock-in recorded successfully."
@@ -633,19 +951,26 @@ def clock_in(username: str) -> tuple[bool, str]:
 def clock_out(username: str) -> tuple[bool, str]:
     open_record = get_open_attendance_record(username)
     if not open_record:
-        return False, "No active clock-in found for today."
-    clock_in_dt = datetime.strptime(open_record["clock_in"], "%Y-%m-%d %H:%M:%S")
-    clock_out_ts = current_timestamp()
-    clock_out_dt = datetime.strptime(clock_out_ts, "%Y-%m-%d %H:%M:%S")
+        return False, "No active clock-in found."
+    ci_str = open_record["clock_in"]
+    try:
+        if ci_str.endswith("+00:00"):
+            clock_in_dt = datetime.strptime(ci_str, "%Y-%m-%d %H:%M:%S+00:00").replace(tzinfo=timezone.utc)
+        else:
+            clock_in_dt = datetime.strptime(ci_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except Exception:
+        clock_in_dt = datetime.now(timezone.utc)
+    clock_out_ts = utc_timestamp_string()
+    clock_out_dt = datetime.now(timezone.utc)
     elapsed = clock_out_dt - clock_in_dt
     total_seconds = int(elapsed.total_seconds())
     hours, remainder = divmod(max(total_seconds, 0), 3600)
     minutes, _ = divmod(remainder, 60)
     status = f"Completed ({hours}h {minutes}m)"
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE attendance SET clock_out=?,status=? WHERE id=?",
+            "UPDATE attendance SET clock_out=%s, status=%s WHERE id=%s",
             (clock_out_ts, status, open_record["id"]),
         )
         conn.commit()
@@ -653,32 +978,46 @@ def clock_out(username: str) -> tuple[bool, str]:
 
 
 def get_today_attendance() -> list[dict]:
-    with closing(get_connection()) as conn:
+    today = utc_date_string()
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT username,date,clock_in,clock_out,status FROM attendance WHERE date=? ORDER BY clock_in DESC",
-            (current_date_string(),),
+            "SELECT username, date, clock_in, clock_out, status FROM attendance WHERE date=%s ORDER BY clock_in DESC",
+            (today,),
         )
-        return rows_to_dicts(cursor.fetchall())
+        return list(cursor.fetchall())
 
 
 def get_user_attendance_history(username: str) -> list[dict]:
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT date,clock_in,clock_out,status FROM attendance WHERE username=? ORDER BY date DESC,id DESC",
+            "SELECT date, clock_in, clock_out, status FROM attendance WHERE username=%s ORDER BY date DESC, id DESC",
             (username,),
         )
-        return rows_to_dicts(cursor.fetchall())
+        return list(cursor.fetchall())
 
+
+def get_all_attendance_dates(username: str) -> set:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT date FROM attendance WHERE username=%s AND clock_in IS NOT NULL",
+            (username,),
+        )
+        rows = cursor.fetchall()
+    return {row["date"] for row in rows}
+
+
+# ─────────────────────────── DATA: TASKS ────────────────────────
 
 def create_task(assigned_to: str, title: str, description: str) -> tuple[bool, str]:
     if not assigned_to or not title.strip():
         return False, "Assigned intern and task title are required."
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO tasks (assigned_to,title,description,link,status) VALUES (?,?,?,?,?)",
+            "INSERT INTO tasks (assigned_to, title, description, link, status) VALUES (%s, %s, %s, %s, %s)",
             (assigned_to, title.strip(), description.strip(), "", "Assigned"),
         )
         conn.commit()
@@ -686,13 +1025,16 @@ def create_task(assigned_to: str, title: str, description: str) -> tuple[bool, s
 
 
 def submit_task_link(task_id: int, username: str, link: str) -> tuple[bool, str]:
-    if not link.strip():
+    link = link.strip()
+    if not link:
         return False, "Please enter a valid artifact URL."
-    with closing(get_connection()) as conn:
+    if not (link.startswith("http://") or link.startswith("https://")):
+        return False, "Artifact URL must start with http:// or https://"
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE tasks SET link=?,status=? WHERE id=? AND assigned_to=?",
-            (link.strip(), "Pending Review", task_id, username),
+            "UPDATE tasks SET link=%s, status=%s WHERE id=%s AND assigned_to=%s",
+            (link, "Pending Review", task_id, username),
         )
         conn.commit()
         if cursor.rowcount == 0:
@@ -700,30 +1042,34 @@ def submit_task_link(task_id: int, username: str, link: str) -> tuple[bool, str]
     return True, "Assignment link submitted successfully."
 
 
-def review_task(task_id: int, new_status: str) -> None:
-    with closing(get_connection()) as conn:
+def review_task(task_id: int, new_status: str, reviewer_username: str) -> None:
+    with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE tasks SET status=? WHERE id=?", (new_status, task_id))
+        cursor.execute("SELECT role FROM users WHERE username=%s", (reviewer_username,))
+        user = cursor.fetchone()
+        if not user or user["role"] != "supervisor":
+            return
+        cursor.execute("UPDATE tasks SET status=%s WHERE id=%s", (new_status, task_id))
         conn.commit()
 
 
 def get_tasks_for_user(username: str) -> list[dict]:
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id,title,description,link,status FROM tasks WHERE assigned_to=? ORDER BY id DESC",
+            "SELECT id, title, description, link, status FROM tasks WHERE assigned_to=%s ORDER BY id DESC",
             (username,),
         )
-        return rows_to_dicts(cursor.fetchall())
+        return list(cursor.fetchall())
 
 
 def get_pending_reviews() -> list[dict]:
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id,assigned_to,title,description,link,status FROM tasks WHERE status='Pending Review' ORDER BY id DESC"
+            "SELECT id, assigned_to, title, description, link, status FROM tasks WHERE status='Pending Review' ORDER BY id DESC"
         )
-        return rows_to_dicts(cursor.fetchall())
+        return list(cursor.fetchall())
 
 
 def get_supervisor_metrics() -> dict:
@@ -731,10 +1077,11 @@ def get_supervisor_metrics() -> dict:
     pending_reviews = get_pending_reviews()
     interns = list_interns()
     active_clocked_in = sum(1 for r in today_logs if r["clock_out"] is None)
-    with closing(get_connection()) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) AS count FROM tasks WHERE status='Assigned'")
-        assigned_tasks = cursor.fetchone()["count"]
+        row = cursor.fetchone()
+        assigned_tasks = row["count"] if row else 0
     return {
         "intern_count": len(interns),
         "today_logs": len(today_logs),
@@ -744,12 +1091,111 @@ def get_supervisor_metrics() -> dict:
     }
 
 
+# ─────────────────────────── DATA: HOLIDAYS ─────────────────────
+
+def add_holiday(title: str, holiday_date: str, created_by: str) -> tuple[bool, str]:
+    if not title.strip() or not holiday_date:
+        return False, "Title and date are required."
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO holidays (title, holiday_date, created_by, created_at) VALUES (%s, %s, %s, %s)",
+            (title.strip(), str(holiday_date), created_by, utc_timestamp_string()),
+        )
+        conn.commit()
+    return True, f"Holiday '{title.strip()}' added."
+
+
+def delete_holiday(holiday_id: int) -> None:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM holidays WHERE id=%s", (holiday_id,))
+        conn.commit()
+
+
+def get_upcoming_holidays() -> list[dict]:
+    today = utc_date_string()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, title, holiday_date, created_by FROM holidays WHERE holiday_date >= %s ORDER BY holiday_date ASC",
+            (today,),
+        )
+        return list(cursor.fetchall())
+
+
+def get_all_holidays() -> list[dict]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, title, holiday_date, created_by, created_at FROM holidays ORDER BY holiday_date DESC"
+        )
+        return list(cursor.fetchall())
+
+
+# ─────────────────────────── DATA: UPLOADS ──────────────────────
+
+@st.cache_resource
+def get_supabase_client():
+    if not SUPABASE_AVAILABLE:
+        return None
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return None
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    except Exception:
+        return None
+
+
+def upload_file_to_storage(uploaded_file, username: str) -> tuple[bool, str, str]:
+    supabase = get_supabase_client()
+    if supabase is None:
+        return False, "Supabase storage is not configured.", ""
+    try:
+        file_bytes = uploaded_file.read()
+        storage_path = f"{username}/{utc_date_string()}_{uploaded_file.name}"
+        supabase.storage.from_(SUPABASE_BUCKET).upload(
+            storage_path,
+            file_bytes,
+            {"content-type": uploaded_file.type or "application/octet-stream"},
+        )
+        public_url = supabase.storage.from_(SUPABASE_BUCKET).get_public_url(storage_path)
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO uploads (username, filename, storage_path, file_url, uploaded_at) VALUES (%s, %s, %s, %s, %s)",
+                (username, uploaded_file.name, storage_path, public_url, utc_timestamp_string()),
+            )
+            conn.commit()
+        return True, f"'{uploaded_file.name}' uploaded successfully.", public_url
+    except Exception as e:
+        return False, f"Upload failed: {e}", ""
+
+
+def get_uploads_for_user(username: str) -> list[dict]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, filename, file_url, uploaded_at FROM uploads WHERE username=%s ORDER BY id DESC",
+            (username,),
+        )
+        return list(cursor.fetchall())
+
+
+def get_all_uploads() -> list[dict]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, username, filename, file_url, uploaded_at FROM uploads ORDER BY id DESC"
+        )
+        return list(cursor.fetchall())
+
+
 # ─────────────────────────── UI PRIMITIVES ──────────────────────
 
-def render_login() -> None:
+def render_login(cm) -> None:
     _, col, _ = st.columns([1, 1, 1])
     with col:
-        # Logo + app name above the card
         st.markdown(
             """
             <div class="ln-brand-row">
@@ -759,7 +1205,6 @@ def render_login() -> None:
             """,
             unsafe_allow_html=True,
         )
-        # Login card
         with st.container(border=True):
             st.markdown(
                 """
@@ -775,7 +1220,7 @@ def render_login() -> None:
                 password = st.text_input("Password", type="password")
                 submitted = st.form_submit_button("Sign in", use_container_width=True)
         if submitted:
-            if login_user(username, password):
+            if login_user(username, password, cm):
                 st.success("Signed in. Loading your workspace…")
                 st.rerun()
             else:
@@ -786,7 +1231,7 @@ def render_login() -> None:
         )
 
 
-def render_sidebar() -> None:
+def render_sidebar(cm) -> None:
     with st.sidebar:
         name = st.session_state.full_name
         initials = "".join(p[0].upper() for p in name.split()[:2])
@@ -812,7 +1257,7 @@ def render_sidebar() -> None:
             unsafe_allow_html=True,
         )
         if st.button("Sign out", use_container_width=True):
-            logout_user()
+            logout_user(cm)
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -882,6 +1327,105 @@ def render_clock_status(is_clocked_in: bool) -> None:
         )
 
 
+def render_attendance_calendar(username: str) -> None:
+    year = st.session_state.cal_year
+    month = st.session_state.cal_month
+
+    present_dates = get_all_attendance_dates(username)
+    all_holidays = get_all_holidays()
+    holiday_dates = {h["holiday_date"] for h in all_holidays}
+
+    today_utc = datetime.now(timezone.utc).date()
+    today_str = today_utc.strftime("%Y-%m-%d")
+
+    month_name = datetime(year, month, 1).strftime("%B %Y")
+
+    nav_left, nav_mid, nav_right = st.columns([1, 4, 1])
+    with nav_left:
+        if st.button("◀", key="cal_prev"):
+            if st.session_state.cal_month == 1:
+                st.session_state.cal_month = 12
+                st.session_state.cal_year -= 1
+            else:
+                st.session_state.cal_month -= 1
+            st.rerun()
+    with nav_mid:
+        st.markdown(
+            f'<div style="text-align:center;font-size:1rem;font-weight:700;color:#111827;padding:0.4rem 0;">{month_name}</div>',
+            unsafe_allow_html=True,
+        )
+    with nav_right:
+        if st.button("▶", key="cal_next"):
+            if st.session_state.cal_month == 12:
+                st.session_state.cal_month = 1
+                st.session_state.cal_year += 1
+            else:
+                st.session_state.cal_month += 1
+            st.rerun()
+
+    # Build calendar HTML
+    cal = calendar.monthcalendar(year, month)
+    day_headers = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    header_html = "".join(
+        f'<div class="cal-day cal-day-header">{d}</div>' for d in day_headers
+    )
+
+    days_html = ""
+    for week in cal:
+        for day_num in week:
+            if day_num == 0:
+                days_html += '<div class="cal-day cal-day-empty"></div>'
+                continue
+            date_str = f"{year:04d}-{month:02d}-{day_num:02d}"
+            weekday = datetime(year, month, day_num).weekday()
+            is_weekend = weekday >= 5
+            is_today = date_str == today_str
+            is_future = date_str > today_str
+            is_holiday = date_str in holiday_dates
+            is_present = date_str in present_dates
+            is_past_weekday = not is_weekend and not is_future and date_str != today_str
+
+            extra_class = ""
+            if is_holiday:
+                extra_class = "cal-day-holiday"
+            elif is_weekend:
+                extra_class = "cal-day-weekend"
+            elif is_future:
+                extra_class = "cal-day-future"
+            elif is_present:
+                extra_class = "cal-day-present"
+            elif is_past_weekday:
+                extra_class = "cal-day-absent"
+
+            today_class = " cal-day-today" if is_today else ""
+            days_html += f'<div class="cal-day {extra_class}{today_class}">{day_num}</div>'
+
+    calendar_html = f"""
+    <div class="cal-wrapper">
+        <div class="cal-grid">
+            {header_html}
+            {days_html}
+        </div>
+        <div class="cal-legend">
+            <div class="cal-legend-item">
+                <div class="cal-legend-dot legend-present"></div>Present
+            </div>
+            <div class="cal-legend-item">
+                <div class="cal-legend-dot legend-absent"></div>Absent
+            </div>
+            <div class="cal-legend-item">
+                <div class="cal-legend-dot legend-holiday"></div>Holiday
+            </div>
+            <div class="cal-legend-item">
+                <div class="cal-legend-dot legend-weekend"></div>Weekend
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(calendar_html, unsafe_allow_html=True)
+
+
 # ─────────────────────────── DASHBOARDS ─────────────────────────
 
 def render_supervisor_dashboard() -> None:
@@ -899,7 +1443,7 @@ def render_supervisor_dashboard() -> None:
     ])
 
     st.write("")
-    ops_tab, access_tab = st.tabs(["Team Operations", "User Access Management"])
+    ops_tab, access_tab, files_tab = st.tabs(["Team Operations", "User Access", "Files & Holidays"])
 
     with ops_tab:
         left_col, right_col = st.columns((1.2, 1), gap="medium")
@@ -946,6 +1490,7 @@ def render_supervisor_dashboard() -> None:
                 "Approve submitted artifacts or return them for revision.",
             )
             pending = get_pending_reviews()
+            reviewer = st.session_state.username
             if pending:
                 for task in pending:
                     st.markdown(
@@ -963,12 +1508,12 @@ def render_supervisor_dashboard() -> None:
                     c1, c2 = st.columns(2)
                     with c1:
                         if st.button(f"Approve #{task['id']}", key=f"approve_{task['id']}", use_container_width=True):
-                            review_task(task["id"], "Approved")
+                            review_task(task["id"], "Approved", reviewer)
                             st.success(f"Task #{task['id']} approved.")
                             st.rerun()
                     with c2:
                         if st.button(f"Request Revision #{task['id']}", key=f"revise_{task['id']}", use_container_width=True, type="secondary"):
-                            review_task(task["id"], "Revision Needed")
+                            review_task(task["id"], "Revision Needed", reviewer)
                             st.warning(f"Task #{task['id']} returned for revision.")
                             st.rerun()
             else:
@@ -987,8 +1532,9 @@ def render_supervisor_dashboard() -> None:
                     new_username  = st.text_input("Username")
                     new_password  = st.text_input("Password", type="password")
                     new_full_name = st.text_input("Full name")
+                    new_timezone  = st.selectbox("Timezone", TIMEZONE_OPTIONS, index=0)
                     if st.form_submit_button("Create Account", use_container_width=True):
-                        ok, msg = create_intern(new_username, new_password, new_full_name)
+                        ok, msg = create_intern(new_username, new_password, new_full_name, new_timezone)
                         (st.success if ok else st.error)(msg)
                         if ok:
                             st.rerun()
@@ -1023,10 +1569,65 @@ def render_supervisor_dashboard() -> None:
             else:
                 st.info("No intern accounts have been created yet.")
 
+    with files_tab:
+        left_col, right_col = st.columns(2, gap="medium")
+
+        with left_col:
+            with st.container(border=True):
+                render_section_header(
+                    "Manage Holidays",
+                    "Add or remove holidays visible to all interns.",
+                )
+                with st.form("add_holiday_form", clear_on_submit=True):
+                    h_title = st.text_input("Holiday name")
+                    h_date  = st.date_input("Date")
+                    if st.form_submit_button("Add Holiday", use_container_width=True):
+                        ok, msg = add_holiday(h_title, str(h_date), st.session_state.username)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
+
+                st.write("")
+                all_holidays = get_all_holidays()
+                if all_holidays:
+                    for h in all_holidays:
+                        col_info, col_btn = st.columns([4, 1])
+                        with col_info:
+                            st.markdown(
+                                f"""
+                                <div class="holiday-item">
+                                    <div>
+                                        <div class="holiday-title">{h['title']}</div>
+                                        <div class="holiday-date">{h['holiday_date']}</div>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        with col_btn:
+                            if st.button("Delete", key=f"del_holiday_{h['id']}", type="secondary"):
+                                delete_holiday(h["id"])
+                                st.rerun()
+                else:
+                    st.info("No holidays have been added yet.")
+
+        with right_col:
+            with st.container(border=True):
+                render_section_header(
+                    "Intern File Uploads",
+                    "All files submitted by interns.",
+                )
+                uploads = get_all_uploads()
+                if uploads:
+                    st.dataframe(uploads, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No files have been uploaded yet.")
+
 
 def render_intern_dashboard() -> None:
     username = st.session_state.username
     full_name = st.session_state.full_name
+    intern_tz = st.session_state.get("timezone", "UTC")
     open_record = get_open_attendance_record(username)
     tasks = get_tasks_for_user(username)
     approved_tasks = [t for t in tasks if t["status"] == "Approved"]
@@ -1042,7 +1643,7 @@ def render_intern_dashboard() -> None:
             "dot": "dot-green" if open_record else "dot-blue",
             "value": "In" if open_record else "Out",
             "label": "Clock Status",
-            "note": current_date_string(),
+            "note": utc_date_string(),
         },
         {"dot": "dot-amber",  "value": len(pending_tasks),  "label": "Pending Tasks",  "note": "Assigned or needs revision"},
         {"dot": "dot-violet", "value": len(approved_tasks), "label": "Approved Items", "note": "Reviewed by supervisor"},
@@ -1078,7 +1679,15 @@ def render_intern_dashboard() -> None:
             )
             history = get_user_attendance_history(username)
             if history:
-                st.dataframe(history, use_container_width=True, hide_index=True)
+                formatted = []
+                for row in history:
+                    formatted.append({
+                        "date": row["date"],
+                        "clock_in": format_ts_local(row["clock_in"], intern_tz),
+                        "clock_out": format_ts_local(row["clock_out"], intern_tz) if row["clock_out"] else "",
+                        "status": row["status"],
+                    })
+                st.dataframe(formatted, use_container_width=True, hide_index=True)
             else:
                 st.info("No attendance history yet.")
 
@@ -1106,6 +1715,38 @@ def render_intern_dashboard() -> None:
 
         with st.container(border=True):
             render_section_header(
+                "Upload Files",
+                "Upload documents or assets for your supervisor.",
+            )
+            uploaded_files = st.file_uploader(
+                "Upload files",
+                type=["pdf", "docx", "doc", "pptx", "ppt", "png", "jpg", "jpeg", "gif", "webp"],
+                accept_multiple_files=True,
+                key="intern_file_uploader",
+            )
+            if st.button("Upload", key="upload_files_btn", use_container_width=True):
+                if uploaded_files:
+                    for uf in uploaded_files:
+                        ok, msg, _ = upload_file_to_storage(uf, username)
+                        (st.success if ok else st.error)(msg)
+                    st.rerun()
+                else:
+                    st.warning("Please select at least one file.")
+
+            st.write("")
+            user_uploads = get_uploads_for_user(username)
+            if user_uploads:
+                render_section_header("Your Uploaded Files", "")
+                for up in user_uploads:
+                    ts_local = format_ts_local(up["uploaded_at"], intern_tz)
+                    st.markdown(
+                        f'📄 <a href="{up["file_url"]}" target="_blank">{up["filename"]}</a> '
+                        f'<span style="font-size:0.78rem;color:#9CA3AF;">— {ts_local}</span>',
+                        unsafe_allow_html=True,
+                    )
+
+        with st.container(border=True):
+            render_section_header(
                 "Approved Submissions",
                 "Items reviewed and approved by your supervisor.",
             )
@@ -1114,19 +1755,59 @@ def render_intern_dashboard() -> None:
             else:
                 st.info("Approved items will appear here after supervisor review.")
 
+    # Full-width row: Calendar + Upcoming Holidays
+    st.write("")
+    cal_col, holidays_col = st.columns([3, 1], gap="medium")
+
+    with cal_col:
+        with st.container(border=True):
+            render_section_header(
+                "Attendance Calendar",
+                "Your monthly attendance at a glance.",
+            )
+            render_attendance_calendar(username)
+
+    with holidays_col:
+        with st.container(border=True):
+            render_section_header(
+                "Upcoming Holidays",
+                "Scheduled holidays for your team.",
+            )
+            upcoming = get_upcoming_holidays()
+            if upcoming:
+                for h in upcoming:
+                    st.markdown(
+                        f"""
+                        <div class="holiday-item">
+                            <div>
+                                <div class="holiday-title">{h['title']}</div>
+                                <div class="holiday-date">{h['holiday_date']}</div>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info("No upcoming holidays scheduled.")
+
 
 # ─────────────────────────── MAIN ───────────────────────────────
 
 def main() -> None:
+    cm = stx.CookieManager(key="ba_tracker_cm")
     inject_styles()
+    check_env()
     init_db()
     init_session_state()
 
     if not st.session_state.authenticated:
-        render_login()
+        restore_session_from_cookie(cm)
+
+    if not st.session_state.authenticated:
+        render_login(cm)
         return
 
-    render_sidebar()
+    render_sidebar(cm)
 
     if st.session_state.role == "supervisor":
         render_supervisor_dashboard()
