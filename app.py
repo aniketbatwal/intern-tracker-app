@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import psycopg2
 import psycopg2.extras
 import psycopg2.errors
+import psycopg2.pool
 import pytz
 import streamlit as st
 import extra_streamlit_components as stx
@@ -598,13 +599,33 @@ def check_env() -> None:
 
 # ─────────────────────────── DATABASE ───────────────────────────
 
+@st.cache_resource
+def _get_pool():
+    """One connection pool shared for the lifetime of the server process."""
+    return psycopg2.pool.ThreadedConnectionPool(
+        1, 5,
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
+
+
 @contextmanager
 def get_connection():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
         yield conn
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        conn.close()
+        try:
+            pool.putconn(conn)
+        except Exception:
+            pass
 
 
 def hash_password(password: str) -> str:
@@ -1793,11 +1814,22 @@ def render_intern_dashboard() -> None:
 
 # ─────────────────────────── MAIN ───────────────────────────────
 
+@st.cache_resource
+def _init_db_once():
+    """Run DB migrations exactly once per server process, not on every rerun."""
+    init_db()
+    return True
+
+
 def main() -> None:
-    cm = stx.CookieManager(key="ba_tracker_cm")
+    # Instantiate CookieManager once per session — recreating it every rerun
+    # forces an extra round-trip that doubles perceived load time.
+    if "cm" not in st.session_state:
+        st.session_state.cm = stx.CookieManager(key="ba_tracker_cm")
+    cm = st.session_state.cm
     inject_styles()
     check_env()
-    init_db()
+    _init_db_once()
     init_session_state()
 
     if not st.session_state.authenticated:
