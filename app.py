@@ -605,21 +605,41 @@ def check_env() -> None:
 
 # ─────────────────────────── DATABASE ───────────────────────────
 
+def _build_fallback_urls() -> list[str]:
+    """
+    Return candidate connection URLs to try in order.
+    If DATABASE_URL is a transaction-pooler URL (port 6543), also derive a
+    direct-connection fallback (port 5432, plain postgres user) so the app
+    can recover when the pooler rejects the tenant.
+    """
+    urls = [DATABASE_URL]
+    try:
+        import urllib.parse as _up
+        r = _up.urlparse(DATABASE_URL)
+        if r.port == 6543:
+            # Derive direct-connection URL from the project ref in the username
+            # e.g. postgres.iyamaicqfkxehqsgudix  →  ref = iyamaicqfkxehqsgudix
+            user = r.username or ""
+            ref  = user.split(".", 1)[-1] if "." in user else user
+            direct = _up.urlunparse((
+                r.scheme,
+                f"postgres:{r.password}@db.{ref}.supabase.co:5432",
+                r.path, "", "", "",
+            ))
+            urls.append(direct)
+    except Exception:
+        pass
+    return urls
+
+
 @contextmanager
 def get_connection():
-    """
-    Open a fresh connection per request via Supabase's Transaction Pooler.
-    Supabase's pooler (port 6543) already manages warm PostgreSQL connections
-    on its side, so each connect() here is just a fast handshake to the pooler.
-    Keeping our own local pool caused stale-SSL errors when idle connections
-    were silently closed by the cloud provider.
-    """
     conn = None
     last_err: Exception | None = None
-    for attempt in range(2):
+    for url in _build_fallback_urls():
         try:
             conn = psycopg2.connect(
-                DATABASE_URL,
+                url,
                 cursor_factory=psycopg2.extras.RealDictCursor,
                 connect_timeout=10,
             )
