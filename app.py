@@ -909,6 +909,7 @@ def create_intern(username: str, password: str, full_name: str, tz: str = "UTC")
                 (username, hash_password(password), "intern", full_name, tz),
             )
             conn.commit()
+        st.cache_data.clear()
         return True, f"Intern account '{username}' created successfully."
     except psycopg2.errors.UniqueViolation:
         return False, "That username already exists."
@@ -930,9 +931,11 @@ def reset_intern_password(username: str, new_password: str) -> tuple[bool, str]:
             (hash_password(new_password), username.strip()),
         )
         conn.commit()
+    st.cache_data.clear()
     return True, f"Password updated for '{username.strip()}'."
 
 
+@st.cache_data(ttl=120)
 def list_interns() -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -942,6 +945,7 @@ def list_interns() -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=120)
 def get_intern_timezone(username: str) -> str:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -974,6 +978,7 @@ def clock_in(username: str) -> tuple[bool, str]:
             (username, now_date, now_ts, None, "Clocked In"),
         )
         conn.commit()
+    st.cache_data.clear()
     return True, "Clock-in recorded successfully."
 
 
@@ -1003,9 +1008,11 @@ def clock_out(username: str) -> tuple[bool, str]:
             (clock_out_ts, status, open_record["id"]),
         )
         conn.commit()
+    st.cache_data.clear()
     return True, f"Clock-out recorded. Session: {hours}h {minutes}m."
 
 
+@st.cache_data(ttl=10)
 def get_today_attendance() -> list[dict]:
     today = utc_date_string()
     with get_connection() as conn:
@@ -1017,6 +1024,7 @@ def get_today_attendance() -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=20)
 def get_user_attendance_history(username: str) -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1027,6 +1035,7 @@ def get_user_attendance_history(username: str) -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=20)
 def get_all_attendance_dates(username: str) -> set:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1050,6 +1059,7 @@ def create_task(assigned_to: str, title: str, description: str) -> tuple[bool, s
             (assigned_to, title.strip(), description.strip(), "", "Assigned"),
         )
         conn.commit()
+    st.cache_data.clear()
     return True, f"Task '{title.strip()}' dispatched to {assigned_to}."
 
 
@@ -1068,6 +1078,7 @@ def submit_task_link(task_id: int, username: str, link: str) -> tuple[bool, str]
         conn.commit()
         if cursor.rowcount == 0:
             return False, "Task not found or not assigned to you."
+    st.cache_data.clear()
     return True, "Assignment link submitted successfully."
 
 
@@ -1080,8 +1091,10 @@ def review_task(task_id: int, new_status: str, reviewer_username: str) -> None:
             return
         cursor.execute("UPDATE tasks SET status=%s WHERE id=%s", (new_status, task_id))
         conn.commit()
+        st.cache_data.clear()
 
 
+@st.cache_data(ttl=15)
 def get_tasks_for_user(username: str) -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1092,6 +1105,7 @@ def get_tasks_for_user(username: str) -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=10)
 def get_pending_reviews() -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1101,22 +1115,28 @@ def get_pending_reviews() -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=10)
 def get_supervisor_metrics() -> dict:
-    today_logs = get_today_attendance()
-    pending_reviews = get_pending_reviews()
-    interns = list_interns()
-    active_clocked_in = sum(1 for r in today_logs if r["clock_out"] is None)
+    today = utc_date_string()
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) AS count FROM tasks WHERE status='Assigned'")
-        row = cursor.fetchone()
-        assigned_tasks = row["count"] if row else 0
+        cursor.execute(
+            "SELECT clock_out FROM attendance WHERE date=%s", (today,)
+        )
+        today_logs = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) AS cnt FROM tasks WHERE status='Pending Review'")
+        pending_count = cursor.fetchone()["cnt"]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM tasks WHERE status='Assigned'")
+        assigned_count = cursor.fetchone()["cnt"]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='intern'")
+        intern_count = cursor.fetchone()["cnt"]
+    active_clocked_in = sum(1 for r in today_logs if r["clock_out"] is None)
     return {
-        "intern_count": len(interns),
+        "intern_count": intern_count,
         "today_logs": len(today_logs),
         "active_clocked_in": active_clocked_in,
-        "pending_reviews": len(pending_reviews),
-        "assigned_tasks": assigned_tasks,
+        "pending_reviews": pending_count,
+        "assigned_tasks": assigned_count,
     }
 
 
@@ -1132,6 +1152,7 @@ def add_holiday(title: str, holiday_date: str, created_by: str) -> tuple[bool, s
             (title.strip(), str(holiday_date), created_by, utc_timestamp_string()),
         )
         conn.commit()
+    st.cache_data.clear()
     return True, f"Holiday '{title.strip()}' added."
 
 
@@ -1140,8 +1161,10 @@ def delete_holiday(holiday_id: int) -> None:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM holidays WHERE id=%s", (holiday_id,))
         conn.commit()
+        st.cache_data.clear()
 
 
+@st.cache_data(ttl=300)
 def get_upcoming_holidays() -> list[dict]:
     today = utc_date_string()
     with get_connection() as conn:
@@ -1153,6 +1176,7 @@ def get_upcoming_holidays() -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=300)
 def get_all_holidays() -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1196,11 +1220,13 @@ def upload_file_to_storage(uploaded_file, username: str) -> tuple[bool, str, str
                 (username, uploaded_file.name, storage_path, public_url, utc_timestamp_string()),
             )
             conn.commit()
+        st.cache_data.clear()
         return True, f"'{uploaded_file.name}' uploaded successfully.", public_url
     except Exception as e:
         return False, f"Upload failed: {e}", ""
 
 
+@st.cache_data(ttl=30)
 def get_uploads_for_user(username: str) -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -1211,6 +1237,7 @@ def get_uploads_for_user(username: str) -> list[dict]:
         return list(cursor.fetchall())
 
 
+@st.cache_data(ttl=30)
 def get_all_uploads() -> list[dict]:
     with get_connection() as conn:
         cursor = conn.cursor()
