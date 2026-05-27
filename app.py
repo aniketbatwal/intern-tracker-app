@@ -18,10 +18,17 @@ try:
 except ImportError:
     SUPABASE_AVAILABLE = False
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
-SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "intern-uploads")
+def _get_secret(key: str, default: str = "") -> str:
+    """Read from st.secrets (Streamlit Cloud) with fallback to os.getenv (Render/local)."""
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.getenv(key, default)
+
+DATABASE_URL         = _get_secret("DATABASE_URL")
+SUPABASE_URL         = _get_secret("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = _get_secret("SUPABASE_SERVICE_KEY")
+SUPABASE_BUCKET      = _get_secret("SUPABASE_BUCKET", "intern-uploads")
 
 SUPERVISOR_ACCOUNTS = [
     {
