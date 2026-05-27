@@ -8,7 +8,6 @@ from datetime import datetime, timezone, timedelta
 import psycopg2
 import psycopg2.extras
 import psycopg2.errors
-import psycopg2.pool
 import pytz
 import streamlit as st
 import extra_streamlit_components as stx
@@ -599,20 +598,29 @@ def check_env() -> None:
 
 # ─────────────────────────── DATABASE ───────────────────────────
 
-@st.cache_resource
-def _get_pool():
-    """One connection pool shared for the lifetime of the server process."""
-    return psycopg2.pool.ThreadedConnectionPool(
-        1, 5,
-        DATABASE_URL,
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
-
-
 @contextmanager
 def get_connection():
-    pool = _get_pool()
-    conn = pool.getconn()
+    """
+    Open a fresh connection per request via Supabase's Transaction Pooler.
+    Supabase's pooler (port 6543) already manages warm PostgreSQL connections
+    on its side, so each connect() here is just a fast handshake to the pooler.
+    Keeping our own local pool caused stale-SSL errors when idle connections
+    were silently closed by the cloud provider.
+    """
+    conn = None
+    last_err: Exception | None = None
+    for attempt in range(2):
+        try:
+            conn = psycopg2.connect(
+                DATABASE_URL,
+                cursor_factory=psycopg2.extras.RealDictCursor,
+                connect_timeout=10,
+            )
+            break
+        except Exception as exc:
+            last_err = exc
+    if conn is None:
+        raise last_err  # type: ignore[misc]
     try:
         yield conn
     except Exception:
@@ -623,7 +631,7 @@ def get_connection():
         raise
     finally:
         try:
-            pool.putconn(conn)
+            conn.close()
         except Exception:
             pass
 
