@@ -607,26 +607,30 @@ def check_env() -> None:
 
 def _build_fallback_urls() -> list[str]:
     """
-    Return candidate connection URLs to try in order.
-    If DATABASE_URL is a transaction-pooler URL (port 6543), also derive a
-    direct-connection fallback (port 5432, plain postgres user) so the app
-    can recover when the pooler rejects the tenant.
+    Build ordered list of connection URLs to try.
+    Covers: transaction pooler (6543) → session pooler (5432 on pooler host)
+    → direct connection (5432 on db host). Whichever works first is used.
     """
     urls = [DATABASE_URL]
     try:
         import urllib.parse as _up
-        r = _up.urlparse(DATABASE_URL)
+        import re as _re
+        r     = _up.urlparse(DATABASE_URL)
+        user  = r.username or ""
+        pwd   = _up.quote(r.password or "", safe="")
+        host  = r.hostname or ""
+        ref   = user.split(".", 1)[-1] if "." in user else user
+
         if r.port == 6543:
-            # Derive direct-connection URL from the project ref in the username
-            # e.g. postgres.iyamaicqfkxehqsgudix  →  ref = iyamaicqfkxehqsgudix
-            user = r.username or ""
-            ref  = user.split(".", 1)[-1] if "." in user else user
-            direct = _up.urlunparse((
-                r.scheme,
-                f"postgres:{r.password}@db.{ref}.supabase.co:5432",
-                r.path, "", "", "",
-            ))
-            urls.append(direct)
+            # 1. Session pooler — same host, port 5432, same dotted username
+            urls.append(
+                f"postgresql://postgres.{ref}:{pwd}@{host}:5432/postgres"
+            )
+        if r.port in (6543, 5432) and "pooler" in host:
+            # 2. Direct connection — db.<ref>.supabase.co, plain 'postgres' user
+            urls.append(
+                f"postgresql://postgres:{pwd}@db.{ref}.supabase.co:5432/postgres"
+            )
     except Exception:
         pass
     return urls
